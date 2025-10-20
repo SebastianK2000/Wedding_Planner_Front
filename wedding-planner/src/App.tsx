@@ -1,35 +1,40 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { Routes, Route, Navigate } from "react-router-dom";
+import Navbar from "@/components/navbar";
+import Home from "@/pages/home";
+import Venues from "@/pages/venues";
+import Music from "@/pages/music";
+import Photographer from "@/pages/photographer";
+import Florist from "@/pages/florist";
+import Guide from "@/pages/guide";
+import Transport from "@/pages/transport";
+import Guests from "@/pages/guests";
+import Budget from "@/pages/budget";
+import Tasks from "@/pages/tasks";
+import Timeline from "@/pages/timeline";
 
-function App() {
-  const [count, setCount] = useState(0)
-
+export default function App() {
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
-}
+    <div className="min-h-screen bg-brand-50 text-ink">
+      <Navbar />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/sala-weselna" element={<Venues />} />
+          <Route path="/muzyka" element={<Music />} />
+          <Route path="/fotograf" element={<Photographer />} />
+          <Route path="/florysta" element={<Florist />} />
+          <Route path="/przewodnik" element={<Guide />} />
+          <Route path="/transport" element={<Transport />} />
 
-export default App
+          {/* Dodatkowe karty przydatne na wesele */}
+          <Route path="/goscie" element={<Guests />} />
+          <Route path="/budzet" element={<Budget />} />
+          <Route path="/zadania" element={<Tasks />} />
+          <Route path="/harmonogram" element={<Timeline />} />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </div>
+    </div>
+  );
+}

@@ -12,11 +12,15 @@ import Budget from "@/pages/budget";
 import Tasks from "@/pages/tasks";
 import Timeline from "@/pages/timeline";
 
+import PhotographerOffer from "@/pages/photographer_offer";
+import FloristOffer from "@/pages/florist_offer";
+import MusicOffer from "@/pages/music_offer";
+
 export default function App() {
   return (
-    <div className="min-h-screen bg-brand-50 text-ink">
+    <div className="min-h-screen w-screen overflow-x-hidden bg-brand-50 text-ink">
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto w-screen px-4 sm:px-6 lg:px-8 py-8">
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/sala-weselna" element={<Venues />} />
@@ -26,11 +30,14 @@ export default function App() {
           <Route path="/przewodnik" element={<Guide />} />
           <Route path="/transport" element={<Transport />} />
 
-          {/* Dodatkowe karty przydatne na wesele */}
           <Route path="/goscie" element={<Guests />} />
           <Route path="/budzet" element={<Budget />} />
           <Route path="/zadania" element={<Tasks />} />
           <Route path="/harmonogram" element={<Timeline />} />
+
+          <Route path="/fotograf/:id" element={<PhotographerOffer />} />
+          <Route path="/florysta/:id" element={<FloristOffer />} />
+          <Route path="/muzyka/:id" element={<MusicOffer />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

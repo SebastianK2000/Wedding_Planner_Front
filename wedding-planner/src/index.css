@@ -1,6 +1,6 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
 
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
@@ -19,11 +19,11 @@
 
 a {
   font-weight: 500;
-  color: #646cff;
+  color: gray;
   text-decoration: inherit;
 }
 a:hover {
-  color: #535bf2;
+  color: gray;
 }
 
 body {
@@ -39,6 +39,10 @@ h1 {
   line-height: 1.1;
 }
 
+input {
+  background-color: #f4eee4;
+}
+
 button {
   border-radius: 8px;
   border: 1px solid transparent;
@@ -46,12 +50,12 @@ button {
   font-size: 1em;
   font-weight: 500;
   font-family: inherit;
-  background-color: #1a1a1a;
+  background-color: var(--bg-brand-100);
   cursor: pointer;
   transition: border-color 0.25s;
 }
 button:hover {
-  border-color: #646cff;
+  border-color: gray;
 }
 button:focus,
 button:focus-visible {
@@ -133,9 +137,10 @@ button:focus-visible {
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
   body {
-    @apply bg-background text-foreground;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
   }
 }

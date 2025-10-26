@@ -43,6 +43,25 @@ input {
   background-color: #f4eee4;
 }
 
+input[type="checkbox"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #d6d3d1;
+  border-radius: 4px;
+  background: #fff;
+}
+input[type="checkbox"]:checked {
+  background: #CFA37A;
+  border-color: #CFA37A;
+  color: black;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M3.5 8.5l2.5 2.5 6-6' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 12px 12px;
+}
+
 button {
   border-radius: 8px;
   border: 1px solid transparent;

@@ -1,16 +1,28 @@
 import { useMemo, useState } from "react";
 import { GUESTS, type Guest, type GuestStatus } from "@/data/guests";
 
+
+const baseBtn =
+  "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2 hover:bg-brand-200";
+
+const btnFilter =
+  "bg-brand-100 px-3 py-2 rounded-xl border text-sm border-stone-200 text-stone-700 hover:bg-brand-200";
+
+  const btnFilterActive =
+  "px-3 py-2 rounded-xl text-sm border-brand-300 bg-brand-100 text-stone-900 shadow-inner hover:bg-brand-200";
+
+const btnMicro =
+  "text-xs px-2 py-1 rounded-xl border border-brand-200 bg-brand-100 text-stone-700 hover:bg-brand-200";
+
+
 const statusLabels: Record<GuestStatus, string> = {
   potwierdzone: "Potwierdzone",
   oczekuje: "Oczekuje",
   odmowa: "Odmowa",
 };
 
-const baseBtn =
-  "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2";
-const btnPrimary = baseBtn + " bg-accent-500 text-white hover:bg-accent-600";
-const btnSecondary = baseBtn + " border border-brand-200 bg-brand-100 text-stone-700 hover:bg-brand-200";
+const btnPrimary = baseBtn + " bg-accent-600 text-white hover:bg-yellow-700";
+const btnSecondary = baseBtn + " border border-brand-200 bg-brand-200 text-stone-700";
 
 export default function Guests() {
   const [query, setQuery] = useState("");
@@ -106,23 +118,20 @@ export default function Guests() {
               value={query}
               onChange={(e) => { setQuery(e.target.value); setPage(1); }}
               placeholder="imię, email, stolik…"
-              className="w-full rounded-xl border border-stone-300 px-3 py-2"
+              className="bg-brand-100 w-full rounded-xl border border-stone-300 px-3 py-2"
             />
           </div>
-          <div className="flex gap-2 items-end">
-            {(["wszyscy","potwierdzone","oczekuje","odmowa"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => { setStatusFilter(s); setPage(1); }}
-                className={
-                  "px-3 py-2 rounded-xl border text-sm " +
-                  (statusFilter === s ? "border-stone-900 text-stone-900 bg-stone-100" : "border-stone-200 text-stone-600 hover:bg-stone-50")
-                }
-              >
-                {s === "wszyscy" ? "Wszyscy" : statusLabels[s]}
-              </button>
-            ))}
-          </div>
+            <div className="flex gap-2 items-end">
+              {(["wszyscy","potwierdzone","oczekuje","odmowa"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => { setStatusFilter(s); setPage(1); }}
+                  className={statusFilter === s ? btnFilterActive : btnFilter}
+                >
+                  {s === "wszyscy" ? "Wszyscy" : statusLabels[s]}
+                </button>
+              ))}
+            </div>
         </div>
       </div>
 
@@ -158,7 +167,7 @@ export default function Guests() {
                 <select
                   value={g.table ?? ""}
                   onChange={(e) => updateTable(g, e.target.value ? Number(e.target.value) : null)}
-                  className="rounded-lg border border-stone-300 px-2 py-1"
+                  className="bg-brand-100 rounded-lg border border-stone-300 px-2 py-1"
                 >
                   <option value="">—</option>
                   {Array.from({ length: 12 }).map((_, i) => (
@@ -166,13 +175,14 @@ export default function Guests() {
                   ))}
                 </select>
 
-                <button
-                  className="ml-auto text-xs px-2 py-1 rounded-xl border border-stone-300 hover:bg-stone-50"
-                  onClick={() => cycleStatus(g)}
-                  title="Zmień status (potwierdzone → oczekuje → odmowa)"
-                >
-                  Zmień status
-                </button>
+                  <button
+                    className={"ml-auto " + btnMicro}
+                    onClick={() => cycleStatus(g)}
+                    title="Zmień status (potwierdzone → oczekuje → odmowa)"
+                  >
+                    Zmień status
+                  </button>
+
               </div>
 
               {g.email && (
@@ -190,17 +200,17 @@ export default function Guests() {
         {/* Paginacja */}
         <div className="mt-4 flex justify-center items-center gap-2">
           <button
-            className="px-3 py-2 rounded-xl border border-stone-200 text-sm disabled:opacity-50"
+            className="bg-brand-100 px-3 py-2 rounded-xl border border-stone-200 text-sm disabled:opacity-50"
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             disabled={page === 1}
           >
             ←
           </button>
-          <span className="text-sm text-stone-600">
+          <span className=" text-sm text-stone-600">
             Strona <strong>{page}</strong> / {totalPages}
           </span>
           <button
-            className="px-3 py-2 rounded-xl border border-stone-200 text-sm disabled:opacity-50"
+            className="bg-brand-100 px-3 py-2 rounded-xl border border-stone-200 text-sm disabled:opacity-50"
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             disabled={page === totalPages}
           >

@@ -15,6 +15,7 @@ import Timeline from "@/pages/timeline";
 import PhotographerOffer from "@/pages/photographer_offer";
 import FloristOffer from "@/pages/florist_offer";
 import MusicOffer from "@/pages/music_offer";
+import TransportOffer from "@/pages/transport_offer";
 
 export default function App() {
   return (
@@ -38,6 +39,7 @@ export default function App() {
           <Route path="/fotograf/:id" element={<PhotographerOffer />} />
           <Route path="/florysta/:id" element={<FloristOffer />} />
           <Route path="/muzyka/:id" element={<MusicOffer />} />
+          <Route path="/transport/:id" element={<TransportOffer />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

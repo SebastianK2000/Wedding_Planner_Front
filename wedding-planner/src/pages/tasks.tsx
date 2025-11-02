@@ -256,12 +256,14 @@ export default function Tasks() {
               { value: "doing", label: "W toku" },
               { value: "done", label: "Gotowe" },
             ]}
+            className="bg-brand-100 text-stone-600 border-stone-300"
           />
           <Select
             label="Kategoria"
             value={catFilter}
             onChange={(v) => setCatFilter(v as Category | "wszystkie")}
             options={[{ value: "wszystkie", label: "Wszystkie" }, ...CATEGORIES.map((c) => ({ value: c, label: c }))]}
+            className="bg-brand-100 text-stone-600 border-stone-300"
           />
           <Select
             label="Priorytet"
@@ -273,6 +275,7 @@ export default function Tasks() {
               { value: "normal", label: "Normalny" },
               { value: "low", label: "Niski" },
             ]}
+            className="bg-brand-100 text-stone-600 border-stone-300"
           />
         </div>
       </div>
@@ -389,7 +392,6 @@ export default function Tasks() {
   );
 }
 
-/* ---------- Pomocnicze komponenty ---------- */
 
 function makeEmptyTask(): Task {
   const now = new Date().toISOString();
@@ -437,11 +439,13 @@ function Select({
   value,
   onChange,
   options,
+  className,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
+  className?: string;
 }) {
   return (
     <div className="w-full lg:w-56">
@@ -449,7 +453,7 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-xl border border-stone-300 px-3 py-2"
+        className={`w-full rounded-xl border border-stone-300 px-3 py-2 ${className ?? ""}`}
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>

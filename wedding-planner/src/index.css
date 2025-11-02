@@ -52,6 +52,7 @@ input[type="checkbox"] {
   border-radius: 4px;
   background: #fff;
 }
+
 input[type="checkbox"]:checked {
   background: #CFA37A;
   border-color: #CFA37A;
@@ -60,6 +61,16 @@ input[type="checkbox"]:checked {
   background-repeat: no-repeat;
   background-position: center;
   background-size: 12px 12px;
+}
+
+input[type="dropdown"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border: 1px solid #d6d3d1;
+  border-radius: 4px;
+  background: #fff;
 }
 
 button {

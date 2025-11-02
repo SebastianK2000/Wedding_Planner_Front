@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { TRANSPORT, type TransportVendor, CART_KEY_TRANSPORT } from "@/data/transport";
 
@@ -10,41 +10,7 @@ export default function Transport() {
   const btnSecondary = baseBtn + " border border-brand-200 bg-brand-100 text-stone-700 hover:bg-brand-200";
   const btnPrimary   = baseBtn + " bg-accent-500 text-white hover:bg-accent-600 shadow-sm";
 
-  // ---- Planner pojemności
-  const [guests, setGuests] = useState<number | "">("");
-  const [city, setCity] = useState("");
-  const [mix, setMix] = useState<{ [id: string]: number }>({}); // id -> liczba pojazdów
 
-  const buses = useMemo(() => TRANSPORT.filter(t => t.type === "Bus" && t.capacity), []);
-  const totalSeats = useMemo(() =>
-    Object.entries(mix).reduce((s, [id, count]) => {
-      const v = TRANSPORT.find(x => x.id === id);
-      return s + (v?.capacity || 0) * (count || 0);
-    }, 0), [mix]);
-
-  function suggestMix() {
-    if (!guests || guests <= 0) return setMix({});
-    // Greedy: najpierw największe autobusy
-    const sorted = [...buses].sort((a, b) => (b.capacity! - a.capacity!));
-    let remaining = Number(guests);
-    const result: Record<string, number> = {};
-    for (const b of sorted) {
-      const take = Math.floor(remaining / (b.capacity || 1));
-      if (take > 0) {
-        result[b.id] = take;
-        remaining -= take * (b.capacity || 0);
-      }
-    }
-    if (remaining > 0) {
-      // dołóż najmniejszy bus, by domknąć
-      const smallest = sorted[sorted.length - 1];
-      result[smallest.id] = (result[smallest.id] || 0) + 1;
-      remaining = 0;
-    }
-    setMix(result);
-  }
-
-  // ---- Modal Szczegóły
   const [selected, setSelected] = useState<TransportVendor | null>(null);
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
@@ -60,10 +26,9 @@ export default function Transport() {
       const next = exists ? prev : [...prev, item];
       localStorage.setItem(CART_KEY_TRANSPORT, JSON.stringify(next));
       setToast(exists ? "Już w planie ✨" : `Dodano: ${item.name}`);
-      // powiadom navbar/badge
       window.dispatchEvent(new CustomEvent("wp:cart:update", { detail: { count: next.length, key: CART_KEY_TRANSPORT } }));
     } catch {
-      setToast("Ups, nie udało się zapisać 😕");
+      setToast("Ups, nie udało się zapisać");
     }
   }
 
@@ -78,56 +43,6 @@ export default function Transport() {
       <h2 className="text-xl font-semibold">Transport</h2>
       <p className="text-stone-600">Busy dla gości, samochód ślubny, logistyka dojazdu.</p>
 
-      {/* Planner pojemności */}
-      <div className="bg-white rounded-2xl shadow border border-stone-200/60 p-4">
-        <div className="grid sm:grid-cols-3 gap-3">
-          <div>
-            <label className="block text-xs text-stone-500 mb-1">Liczba gości do przewozu</label>
-            <input
-              inputMode="numeric"
-              value={guests}
-              onChange={(e) => setGuests(e.target.value ? Number(e.target.value) : "")}
-              className="w-full rounded-xl border border-stone-300 px-3 py-2"
-              placeholder="np. 80"
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-stone-500 mb-1">Miasto startu</label>
-            <input
-              value={city}
-              onChange={(e) => setCity(e.target.value)}
-              className="w-full rounded-xl border border-stone-300 px-3 py-2"
-              placeholder="np. Kraków"
-            />
-          </div>
-          <div className="flex items-end">
-            <button className={btnSecondary} onClick={suggestMix} disabled={!guests}>Zaproponuj układ busów</button>
-          </div>
-        </div>
-
-        {/* Dobór busów */}
-        {Object.keys(mix).length > 0 && (
-          <div className="mt-3 rounded-xl border border-stone-200 p-3">
-            <div className="text-sm font-medium mb-2">Proponowany układ</div>
-            <div className="flex flex-wrap gap-2 text-sm">
-              {Object.entries(mix).map(([id, count]) => {
-                const v = TRANSPORT.find(x => x.id === id)!;
-                return (
-                  <span key={id} className="px-3 py-1 rounded-xl bg-brand-100 border border-brand-200">
-                    {v.name} × {count} ({v.capacity} miejsc)
-                  </span>
-                );
-              })}
-            </div>
-            <div className="text-sm text-stone-600 mt-2">
-              Razem miejsc: <strong>{totalSeats}</strong>{guests ? ` • Gości: ${guests}` : ""}
-              {guests && totalSeats < guests && <span className="text-rose-600"> • Za mało miejsc — dołóż pojazd.</span>}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Lista przewoźników */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {TRANSPORT.map((t) => (
           <div key={t.id} className="bg-white rounded-2xl shadow border border-stone-200/60 overflow-hidden">
@@ -150,7 +65,6 @@ export default function Transport() {
         ))}
       </div>
 
-      {/* Modal Szczegóły */}
       {open && selected && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={closeDetails}>
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl overflow-hidden" onClick={(e)=>e.stopPropagation()}>
@@ -173,7 +87,6 @@ export default function Transport() {
         </div>
       )}
 
-      {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-2xl bg-stone-900 text-white px-4 py-2 shadow">
           {toast}

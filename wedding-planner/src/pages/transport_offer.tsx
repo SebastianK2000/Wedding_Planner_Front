@@ -4,11 +4,11 @@ import { TRANSPORT, type TransportVendor, CART_KEY_TRANSPORT } from "@/data/tran
 
 type Booking = {
   vendorId: string;
-  date: string;     // YYYY-MM-DD
-  time: string;     // HH:MM
-  from: string;     // skąd
-  to: string;       // dokąd
-  trips: number;    // liczba kursów
+  date: string;
+  time: string;
+  from: string;
+  to: string;
+  trips: number;
   passengers?: number;
   notes?: string;
 };
@@ -41,7 +41,6 @@ export default function TransportOffer() {
 
   const estPrice = useMemo(() => {
     if (!item) return 0;
-    // bardzo prosty szacunek: cena bazowa × kursy (dla busa), dla auta stała stawka
     return item.type === "Bus" ? item.priceFrom * Math.max(1, form.trips) : item.priceFrom;
   }, [item, form.trips]);
 
@@ -56,7 +55,7 @@ export default function TransportOffer() {
       window.dispatchEvent(new CustomEvent("wp:cart:update", { detail: { count: next.length, key: CART_KEY_TRANSPORT } }));
       setToast(exists ? "Już w planie ✨" : `Dodano: ${item.name}`);
     } catch {
-      setToast("Ups, nie udało się zapisać 😕");
+      setToast("Ups, nie udało się zapisać");
     }
   }
 
@@ -106,7 +105,6 @@ export default function TransportOffer() {
         </div>
       </div>
 
-      {/* Formularz rezerwacji */}
       <div className="bg-white rounded-2xl shadow border border-stone-200/60 p-4">
         <h3 className="text-lg font-semibold">Rezerwacja (mock)</h3>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-3">
@@ -174,7 +172,7 @@ export default function TransportOffer() {
             <textarea
               value={form.notes ?? ""}
               onChange={(e) => setForm(f => ({ ...f, notes: e.target.value }))}
-              className="w-full rounded-xl border border-stone-300 px-3 py-2"
+              className="bg-brand-100 w-full rounded-xl border border-stone-300 px-3 py-2"
               rows={3}
               placeholder="np. dwa przystanki po drodze, fotobudka z osobnym transportem…"
             />

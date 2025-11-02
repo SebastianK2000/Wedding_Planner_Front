@@ -21,6 +21,9 @@ import FloristOffer from "@/pages/florist_offer";
 import MusicOffer from "@/pages/music_offer";
 import TransportOffer from "@/pages/transport_offer";
 
+import Login from "@/auth/login";
+import Register from "@/auth/register";
+
 export default function App() {
   return (
     <div className="min-h-screen w-screen overflow-x-hidden bg-brand-50 text-ink">
@@ -48,6 +51,9 @@ export default function App() {
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/kontakt" element={<Contact />} />
             <Route path="/polityka-prywatnosci" element={<Privacy />} />
+
+            <Route path="/login" element={<Login />} />
+            <Route path="/rejestracja" element={<Register />} />
 
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

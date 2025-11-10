@@ -36,7 +36,7 @@ export default function Florist() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Florysta</h2>
-      <p className="text-stone-600">Dekoracje, bukiety, ścianka i dodatki.</p>
+      <p className="text-stone-600">Dekoracje, bukiety, kwiaty i ozdoby. To wszystko znajdziesz tutaj!</p>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {FLORISTS.map((f) => (
@@ -44,6 +44,7 @@ export default function Florist() {
             <img src={f.image} alt={f.title} className="w-full h-40 object-cover" loading="lazy" />
             <div className="p-4">
               <div className="font-medium">{f.title}</div>
+              <div className="text-sm text-stone-600">{f.companyName} • od {f.priceFrom} zł</div>
               <div className="text-sm text-stone-600">Opis: {f.desc}</div>
               <div className="pt-3 flex flex-wrap gap-2">
                 <button className={btnSecondary} onClick={() => openDetails(f)}>Szczegóły</button>
@@ -60,7 +61,8 @@ export default function Florist() {
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl overflow-hidden" onClick={(e)=>e.stopPropagation()}>
             <img src={selected.image} alt={selected.title} className="w-full h-64 object-cover" />
             <div className="p-4">
-              <h3 className="text-lg font-semibold">{selected.title}</h3>
+              <h3 className="text-lg font-semibold">{selected.title}</h3>              
+              <div className="text-sm text-stone-600">{selected.companyName} • od {selected.priceFrom} zł</div>
               <p className="text-sm text-stone-600 mt-2">{selected.desc}</p>
               <div className="mt-4 flex gap-2 justify-end">
                 <button className={btnSecondary} onClick={closeDetails}>Zamknij</button>

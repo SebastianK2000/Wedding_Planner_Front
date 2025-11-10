@@ -41,7 +41,7 @@ export default function Transport() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Transport</h2>
-      <p className="text-stone-600">Busy dla gości, samochód ślubny, logistyka dojazdu.</p>
+      <p className="text-stone-600">Busy dla gości, samochód ślubny, szeroka możliwość wyboru!</p>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {TRANSPORT.map((t) => (
@@ -50,7 +50,7 @@ export default function Transport() {
             <div className="p-4">
               <div className="font-medium">{t.name}</div>
               <div className="text-sm text-stone-600">
-                {t.type} • {t.city}
+                {t.city} • {t.type}
                 {t.capacity ? <> • {t.capacity} miejsc</> : null} • od{" "}
                 <strong>{new Intl.NumberFormat("pl-PL").format(t.priceFrom)} zł</strong>
               </div>
@@ -72,7 +72,7 @@ export default function Transport() {
             <div className="p-4">
               <h3 className="text-lg font-semibold">{selected.name}</h3>
               <p className="text-sm text-stone-600">
-                {selected.type} • {selected.city}
+                {selected.city} • {selected.type}
                 {selected.capacity ? <> • {selected.capacity} miejsc</> : null} • od{" "}
                 <strong>{new Intl.NumberFormat("pl-PL").format(selected.priceFrom)} zł</strong>
               </p>

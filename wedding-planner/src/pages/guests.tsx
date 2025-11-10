@@ -135,7 +135,6 @@ export default function Guests() {
         </div>
       </div>
 
-      {/* Lista gości */}
       <div className="bg-white rounded-2xl shadow border border-stone-200/60 p-4">
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3 text-sm">
           {pageItems.map((g) => (
@@ -197,7 +196,6 @@ export default function Guests() {
           ))}
         </div>
 
-        {/* Paginacja */}
         <div className="mt-4 flex justify-center items-center gap-2">
           <button
             className="bg-brand-100 px-3 py-2 rounded-xl border border-stone-200 text-sm disabled:opacity-50"

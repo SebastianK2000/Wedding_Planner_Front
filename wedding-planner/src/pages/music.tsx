@@ -36,7 +36,7 @@ export default function Music() {
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Muzyka</h2>
-      <p className="text-stone-600">Dodaj zespoły/DJ-ów, porównaj ceny, zapisz ulubionych.</p>
+      <p className="text-stone-600">Wybierz swój zespół bądź DJ i zapewnij sobie niesamowite przeżycia!</p>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
         {MUSIC.map((m) => (
@@ -45,7 +45,7 @@ export default function Music() {
             <div className="p-4">
               <div className="font-medium">{m.name}</div>
               <div className="text-sm text-stone-600">
-                {m.type} • {m.city} • od <strong>{new Intl.NumberFormat("pl-PL").format(m.priceFrom)} zł</strong>
+                {m.city} • {m.type} • od <strong>{new Intl.NumberFormat("pl-PL").format(m.priceFrom)} zł</strong>
               </div>
               <div className="text-sm text-stone-600 mt-1">Opis: {m.desc}</div>
               <div className="pt-3 flex flex-wrap gap-2">
@@ -58,7 +58,6 @@ export default function Music() {
         ))}
       </div>
 
-      {/* Modal */}
       {open && selected && (
         <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={closeDetails}>
           <div className="w-full max-w-2xl rounded-2xl bg-white shadow-xl overflow-hidden" onClick={(e)=>e.stopPropagation()}>
@@ -66,7 +65,7 @@ export default function Music() {
             <div className="p-4">
               <h3 className="text-lg font-semibold">{selected.name}</h3>
               <p className="text-sm text-stone-600">
-                {selected.type} • {selected.city} • od{" "}
+                {selected.city} • {selected.type} • od{" "}
                 <strong>{new Intl.NumberFormat("pl-PL").format(selected.priceFrom)} zł</strong>
               </p>
               <p className="text-sm text-stone-600 mt-2">{selected.desc}</p>

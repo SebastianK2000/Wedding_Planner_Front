@@ -53,7 +53,7 @@ export default function Photographer() {
   return (
     <div className="space-y-4 w-full overflow-x-hidden">
       <h2 className="text-xl font-semibold">Fotograf</h2>
-      <p className="text-stone-600">Lista fotografów, pakiety i terminy.</p>
+      <p className="text-stone-600">Wybierz swojego fotografa który zapewni ci pamiątkę na całe życie!</p>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
         {PHOTOGRAPHERS.map((p) => (
@@ -70,7 +70,7 @@ export default function Photographer() {
             <div className="p-4">
               <div className="font-medium">{p.name}</div>
               <div className="text-sm text-stone-600">
-                {p.city} • pakiet od{" "}
+                {p.city} • od{" "}
                 <strong>{new Intl.NumberFormat("pl-PL").format(p.priceFrom)} zł</strong>
               </div>
               <div className="text-sm text-stone-600 mt-1">Opis: {p.desc}</div>
@@ -105,7 +105,7 @@ export default function Photographer() {
             <div className="p-4">
               <h3 className="text-lg font-semibold">{selected.name}</h3>
               <p className="text-sm text-stone-600">
-                {selected.city} • pakiet od{" "}
+                {selected.city} • od {" "}
                 <strong>{new Intl.NumberFormat("pl-PL").format(selected.priceFrom)} zł</strong>
               </p>
               <p className="text-sm text-stone-600 mt-2">{selected.desc}</p>

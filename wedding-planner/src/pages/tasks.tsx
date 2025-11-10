@@ -212,7 +212,6 @@ export default function Tasks() {
 
   return (
     <div className="space-y-4">
-      {/* Header + actions */}
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-xl font-semibold">Zadania</h2>
@@ -225,7 +224,6 @@ export default function Tasks() {
         </div>
       </div>
 
-      {/* Stats / progress */}
       <div className="grid sm:grid-cols-4 gap-3">
         <Stat label="Wszystkie" value={String(stats.total)} />
         <Stat label="Do zrobienia" value={String(stats.todo)} />
@@ -280,7 +278,6 @@ export default function Tasks() {
         </div>
       </div>
 
-      {/* Quick add */}
       <div className="bg-white rounded-2xl shadow border border-stone-200/60 p-4">
         <div className="text-sm text-stone-600 mb-3">Szybkie dodawanie</div>
         <div className="flex flex-wrap gap-2">
@@ -293,12 +290,10 @@ export default function Tasks() {
         </div>
       </div>
 
-      {/* Groups by due date */}
       {Object.entries(groups).map(([title, list]) => (
         <section key={title} className="space-y-2">
           <h3 className="text-sm font-semibold text-stone-700">{title} <span className="text-stone-400">({list.length})</span></h3>
 
-          {/* Desktop table */}
           <div className="hidden md:block bg-white rounded-2xl shadow border border-stone-200/60 overflow-hidden">
             <table className="w-full text-sm">
               <thead>
@@ -342,7 +337,6 @@ export default function Tasks() {
             </table>
           </div>
 
-          {/* Mobile cards */}
           <div className="md:hidden grid gap-2">
             {list.map((t) => (
               <div key={t.id} className="rounded-2xl border border-stone-200 bg-white p-3">
@@ -368,7 +362,6 @@ export default function Tasks() {
         </section>
       ))}
 
-      {/* Modal edytora */}
       {editing && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setEditing(null)}>
           <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
@@ -382,7 +375,6 @@ export default function Tasks() {
         </div>
       )}
 
-      {/* Toast */}
       {toast && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-2xl bg-stone-900 text-white px-4 py-2 shadow">
           {toast}

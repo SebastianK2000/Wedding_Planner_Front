@@ -155,7 +155,6 @@ export default function Budget() {
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-xl font-semibold">Budżet</h2>
@@ -171,14 +170,12 @@ export default function Budget() {
         </div>
       </div>
 
-      {/* Stats */}
       <div className="grid sm:grid-cols-3 gap-3">
         <Stat label="Plan" value={PLN(stats.planned)} />
         <Stat label="Rzeczywiste" value={PLN(stats.actual)} tone="ok" />
         <Stat label="Pozostało" value={PLN(stats.remaining)} tone="warn" />
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-2xl shadow border border-stone-200/60 p-4">
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="flex-1">
@@ -206,7 +203,6 @@ export default function Budget() {
         </div>
       </div>
 
-      {/* List */}
       <div className="bg-white rounded-2xl shadow border border-stone-200/60 p-0 overflow-hidden">
         <div className="hidden md:block">
           <table className="w-full text-sm">

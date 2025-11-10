@@ -146,7 +146,6 @@ export default function Timeline() {
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8">
-      {/* Nagłówek */}
       <div className="flex items-end justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-3xl font-bold text-stone-900">Harmonogram</h2>
@@ -176,7 +175,6 @@ export default function Timeline() {
         </div>
       </div>
 
-      {/* Pasek postępu + filtr */}
       <div className="mt-6 grid gap-3 md:grid-cols-3 items-center">
         <div className="md:col-span-2">
           <div className="flex justify-between items-center text-sm font-medium text-stone-600 mb-1">
@@ -202,7 +200,6 @@ export default function Timeline() {
         </label>
       </div>
 
-      {/* Oś czasu */}
       <div className="relative mt-8">
         <div className="absolute left-3 top-0 bottom-0 w-0.5 bg-stone-200" aria-hidden="true" />
 
@@ -214,7 +211,6 @@ export default function Timeline() {
 
           return (
             <section key={group.id} className="mb-8">
-              {/* Nagłówek grupy */}
               <div className="rounded-lg sticky top-16 z-10 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80 py-2 pl-10 pr-2">
                 <button
                   onClick={() => setCollapsed((c) => ({ ...c, [group.id]: !c[group.id] }))}
@@ -233,7 +229,6 @@ export default function Timeline() {
                   </span>
                 </button>
 
-                {/* mini progress paska w headerze grupy */}
                 <div className="mt-2 h-1.5 rounded-full bg-stone-200 overflow-hidden">
                   <div
                     className="h-full rounded-full bg-accent-500 transition-[width] duration-300"
@@ -252,7 +247,6 @@ export default function Timeline() {
                 </div>
               </div>
 
-              {/* Lista zadań */}
               <div
                 id={`grp-${group.id}`}
                 className={`transition-[height,opacity] duration-200 ease-out ${isCollapsed ? "opacity-0 h-0 overflow-hidden" : "opacity-100"}`}
@@ -260,7 +254,6 @@ export default function Timeline() {
                 <div className="mt-4 space-y-6">
                   {group.tasks.map((task) => (
                     <div key={task.id} className="relative grid grid-cols-[28px_1fr] gap-4 pl-8 items-start">
-                      {/* kolumna 1: checkbox */}
                       <button
                         onClick={() => toggleTask(group.id, task.id)}
                         onKeyDown={(e) => {
@@ -281,7 +274,6 @@ export default function Timeline() {
                         <Check size={16} strokeWidth={3} />
                       </button>
 
-                      {/* kolumna 2: treść */}
                       <div className="pt-1">
                         <h4 className={`font-semibold ${task.status === "done" ? "text-stone-500 line-through decoration-stone-400" : "text-stone-900"}`}>
                           {task.title}
@@ -294,7 +286,6 @@ export default function Timeline() {
 
                   ))}
 
-                  {/* Pusta sekcja po filtrze */}
                   {group.tasks.length === 0 && (
                     <div className="pl-10 text-sm text-stone-500">Brak zadań w tej sekcji dla zastosowanego filtra.</div>
                   )}

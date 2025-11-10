@@ -12,7 +12,6 @@ export default function Guide() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-12 gap-6">
-      {/* Sidebar (TOC) */}
       <aside className="col-span-12 md:col-span-3">
         <div className={`${baseCard} sticky top-24`}>
           <h2 className="text-base font-semibold mb-3">Przewodnik</h2>
@@ -45,9 +44,7 @@ export default function Guide() {
         </div>
       </aside>
 
-      {/* Content */}
       <main className="col-span-12 md:col-span-9 space-y-6">
-        {/* Hero */}
         <section className={`${baseCard} bg-brand-50/60`}>
           <h1 className="text-2xl font-semibold">Planowanie wesela – przewodnik krok po kroku</h1>
           <p className="text-stone-600 mt-2">
@@ -60,7 +57,6 @@ export default function Guide() {
           </div>
         </section>
 
-        {/* Strategia */}
         <section id="strategia" className={baseCard}>
           <h3 className="text-lg font-semibold">1. Strategia i cele</h3>
           <div className="grid sm:grid-cols-2 gap-4 mt-3">
@@ -83,7 +79,6 @@ export default function Guide() {
           </div>
         </section>
 
-        {/* Harmonogram (timeline) */}
         <section id="harmonogram" className={baseCard}>
           <h3 className="text-lg font-semibold">2. Harmonogram (12 miesięcy → 0)</h3>
           <ol className="mt-3 space-y-6">
@@ -143,7 +138,6 @@ export default function Guide() {
           </ol>
         </section>
 
-        {/* Budżet */}
         <section id="budzet" className={baseCard}>
           <h3 className="text-lg font-semibold">3. Budżet i koszty</h3>
           <p className="text-stone-600">
@@ -172,7 +166,6 @@ export default function Guide() {
           </div>
         </section>
 
-        {/* Pytania do dostawców */}
         <section id="dostawcy" className={baseCard}>
           <h3 className="text-lg font-semibold">4. Pytania do dostawców</h3>
           <div className="grid sm:grid-cols-2 gap-4 mt-3">
@@ -193,7 +186,6 @@ export default function Guide() {
           </div>
         </section>
 
-        {/* Dzień ślubu */}
         <section id="dzien-slubu" className={baseCard}>
           <h3 className="text-lg font-semibold">5. Dzień ślubu – minute plan</h3>
           <ul className="grid sm:grid-cols-2 gap-3 text-sm text-stone-700 mt-3">
@@ -206,7 +198,6 @@ export default function Guide() {
           </ul>
         </section>
 
-        {/* Plan B */}
         <section id="plan-b" className={baseCard}>
           <h3 className="text-lg font-semibold">6. Plan awaryjny</h3>
           <div className="rounded-xl border-l-4 border-accent-500 bg-brand-100/60 p-4 text-sm text-stone-700">
@@ -220,7 +211,6 @@ export default function Guide() {
           </div>
         </section>
 
-        {/* Komunikacja */}
         <section id="komunikacja" className={baseCard}>
           <h3 className="text-lg font-semibold">7. Komunikacja i RSVP</h3>
           <div className="grid sm:grid-cols-3 gap-4 mt-3 text-sm text-stone-700">
@@ -239,7 +229,6 @@ export default function Guide() {
           </div>
         </section>
 
-        {/* Stylistyka */}
         <section id="stylistyka" className={baseCard}>
           <h3 className="text-lg font-semibold">8. Stylistyka i paleta</h3>
           <p className="text-stone-600">Spójność w papeterii, kwiatach, oświetleniu i dekorze.</p>
@@ -251,7 +240,6 @@ export default function Guide() {
           </div>
         </section>
 
-        {/* Checklisty */}
         <section id="checklisty" className={baseCard}>
           <h3 className="text-lg font-semibold">9. Checklisty do odhaczania</h3>
           <div className="grid sm:grid-cols-2 gap-4 mt-3">

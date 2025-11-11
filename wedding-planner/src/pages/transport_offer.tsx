@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { TRANSPORT, type TransportVendor, CART_KEY_TRANSPORT } from "@/data/transport";
-import { CalendarDays, Clock, Info, MapPin, Route, Sparkles, Users, Bus, Car, PlusCircle } from "lucide-react";
+import { CalendarDays, Clock, Info, MapPin, Route, Sparkles, Users, Check, Bus, Car, PlusCircle } from "lucide-react";
 
 type Booking = {
   vendorId: string;
@@ -14,6 +14,14 @@ type Booking = {
   notes?: string;
 };
 
+const plDate = (d: Date) =>
+  new Intl.DateTimeFormat("pl-PL", {
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
+    weekday: "short",
+  }).format(d);
+
 const LS_BOOKINGS = "wp_transport_bookings";
 
 export default function TransportOffer() {
@@ -25,6 +33,27 @@ export default function TransportOffer() {
     "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2";
   const btnSecondary = baseBtn + " border border-stone-200 bg-white text-stone-700 hover:bg-stone-50";
   const btnPrimary = baseBtn + " bg-accent-500 text-white hover:bg-accent-600 shadow-sm";
+
+  type DateRow = { iso: string; date: Date; status: "past" | "today" | "future" };
+const dates: DateRow[] = useMemo(() => {
+  const rawDates = ["2025-05-17", "2025-06-14", "2025-07-12", "2025-08-23", "2025-09-13"];
+  const today = new Date();
+  return rawDates.map((iso) => {
+    const d = new Date(iso + "T12:00:00");
+    const sameDay =
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate();
+    const status: DateRow["status"] = sameDay
+      ? "today"
+      : d < new Date(today.getFullYear(), today.getMonth(), today.getDate())
+      ? "past"
+      : "future";
+    return { iso, date: d, status };
+  });
+}, []);
+
+const hasUpcoming = dates.some((d) => d.status === "future" || d.status === "today");
 
   const [toast, setToast] = useState<string | null>(null);
   useEffect(() => {
@@ -43,6 +72,12 @@ export default function TransportOffer() {
     passengers: item?.capacity ?? undefined,
     notes: "",
   }));
+
+    const scope = [
+      "Przewóz gości: ceremonia ⇄ sala, postój na zdjęcia",
+      "Transfer Pary Młodej oraz VIP",
+      "Shuttle po północy (kursy na żądanie"
+  ];
 
   const estPrice = useMemo(() => {
     if (!item) return 0;
@@ -139,10 +174,15 @@ export default function TransportOffer() {
           <h3 id="transport-info" className="font-semibold mb-3 flex items-center gap-2">
             <Route className="h-5 w-5 text-accent-500" /> Zakres usług
           </h3>
-          <ul className="text-sm text-stone-700 space-y-2">
-            <li className="flex items-start gap-2"><span className="mt-0.5 rounded-md bg-emerald-50 border border-emerald-200 p-0.5 text-emerald-700">•</span> Przewóz gości: ceremonia ⇄ sala, postój na zdjęcia</li>
-            <li className="flex items-start gap-2"><span className="mt-0.5 rounded-md bg-emerald-50 border border-emerald-200 p-0.5 text-emerald-700">•</span> Transfer Pary Młodej oraz VIP</li>
-            <li className="flex items-start gap-2"><span className="mt-0.5 rounded-md bg-emerald-50 border border-emerald-200 p-0.5 text-emerald-700">•</span> Shuttle po północy (kursy na żądanie)</li>
+          <ul className="space-y-2 text-sm text-stone-700">
+            {scope.map((line, i) => (
+              <li key={i} className="flex items-start gap-2">
+                <span className="mt-0.5 rounded-md border border-emerald-200 bg-emerald-50 p-0.5 text-emerald-700">
+                  <Check className="h-3.5 w-3.5" />
+                </span>
+                <span>{line}</span>
+              </li>
+            ))}
           </ul>
           <div className="mt-4 rounded-xl bg-stone-50 border border-stone-200 p-3 text-xs text-stone-600 flex gap-2">
             <Info className="h-4 w-4 shrink-0 mt-0.5" /> Elastyczne czasy postoju i możliwość dodawania przystanków.
@@ -170,16 +210,44 @@ export default function TransportOffer() {
           </div>
         </div>
 
-        <div className="lg:col-span-3 bg-white rounded-2xl shadow p-4 md:p-5 border border-stone-200/60">
-          <h3 className="font-semibold mb-3 flex items-center gap-2">
+        <div className="lg:col-span-3 rounded-2xl border border-stone-200/60 bg-white p-4 md:p-5 shadow">
+          <h3 className="mb-3 flex items-center gap-2 font-semibold">
             <CalendarDays className="h-5 w-5 text-accent-500" /> Terminy
           </h3>
-          <p className="text-sm text-stone-700">
-            Rezerwacje przyjmujemy z 6–12 mies. wyprzedzeniem. Wysoki popyt: maj–wrzesień.
-          </p>
-          <div className="mt-3 rounded-xl border border-stone-200 bg-stone-50 p-3 text-xs text-stone-600 flex items-center gap-2">
-            <MapPin className="h-4 w-4" /> Obszar: {item.city} i okolice (do 80 km). Dalsze trasy — na zapytanie.
+          <div className="space-y-2">
+            {dates.map((d) => (
+              <div
+                key={d.iso}
+                className={`flex items-center justify-between rounded-xl border px-3 py-2 text-sm ${
+                  d.status === "future"
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : d.status === "today"
+                    ? "border-accent-200 bg-accent-50 text-accent-800"
+                    : "border-stone-200 bg-stone-50 text-stone-600"
+                }`}
+                title={d.status === "past" ? "Termin minął" : d.status === "today" ? "Dziś" : "Wolny"}
+              >
+                <span>{plDate(d.date)}</span>
+                <span
+                  className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${
+                    d.status === "future"
+                      ? "border-emerald-300 bg-white/70 text-emerald-700"
+                      : d.status === "today"
+                      ? "border-accent-300 bg-white/70 text-accent-700"
+                      : "border-stone-300 bg-white/70 text-stone-700"
+                  }`}
+                >
+                  {d.status === "future" && "wolny"}
+                  {d.status === "today" && "dzisiaj"}
+                  {d.status === "past" && "minął"}
+                </span>
+              </div>
+            ))}
           </div>
+          {!hasUpcoming && (
+            <p className="mt-3 text-xs text-stone-600">Brak nadchodzących terminów — wyślij zapytanie o inne daty.</p>
+          )}
+          <button className={`${btnPrimary} mt-3 w-full`}>Zapytaj o dostępność</button>
         </div>
       </section>
 

@@ -8,7 +8,6 @@ const primary = [
   { to: "/muzyka", label: "Muzyka" },
   { to: "/fotograf", label: "Fotograf" },
   { to: "/florysta", label: "Florysta" },
-  { to: "/przewodnik", label: "Przewodnik" },
   { to: "/transport", label: "Transport" },
 ];
 
@@ -17,6 +16,7 @@ const secondary = [
   { to: "/budzet", label: "Budżet" },
   { to: "/zadania", label: "Zadania" },
   { to: "/harmonogram", label: "Harmonogram" },
+  { to: "/przewodnik", label: "Przewodnik" },
 ];
 
 const CART_KEYS = ["wp_cart_photographers", "wp_cart_florists", "wp_cart_music"];

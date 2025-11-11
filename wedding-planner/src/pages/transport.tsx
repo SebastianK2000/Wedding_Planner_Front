@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { TRANSPORT, type TransportVendor, CART_KEY_TRANSPORT } from "@/data/transport";
 
@@ -7,9 +7,9 @@ export default function Transport() {
 
   const baseBtn =
     "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2";
-  const btnSecondary = baseBtn + " border border-brand-200 bg-brand-100 text-stone-700 hover:bg-brand-200";
-  const btnPrimary   = baseBtn + " bg-accent-500 text-white hover:bg-accent-600 shadow-sm";
-
+  const btnSecondary =
+    baseBtn + " border border-stone-200 bg-white text-stone-700 hover:bg-stone-50";
+  const btnPrimary = baseBtn + " bg-accent-500 text-white hover:bg-accent-600 shadow-sm";
 
   const [selected, setSelected] = useState<TransportVendor | null>(null);
   const [open, setOpen] = useState(false);
@@ -38,21 +38,148 @@ export default function Transport() {
     return () => clearTimeout(t);
   }, [toast]);
 
+  function nf(n: number) { return new Intl.NumberFormat("pl-PL").format(n); }
+
+  type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "miejsca" | "nazwa";
+
+  const [q, setQ] = useState("");
+  const [vType] = useState<string>("Wszystkie");
+  const [minSeats, setMinSeats] = useState<number>(0);
+  const [sort, setSort] = useState<SortKey>("rekomendowane");
+
+  const [priceMinInit, priceMaxInit] = useMemo(() => {
+    const min = TRANSPORT.reduce((m, v) => Math.min(m, v.priceFrom), Number.POSITIVE_INFINITY);
+    const max = TRANSPORT.reduce((m, v) => Math.max(m, v.priceFrom), 0);
+    return [min, max];
+  }, []);
+
+  const [priceMin, setPriceMin] = useState<number>(priceMinInit);
+  const [priceMax, setPriceMax] = useState<number>(priceMaxInit);
+
+  useEffect(() => {
+    if (!Number.isFinite(priceMin)) setPriceMin(priceMinInit);
+    if (!Number.isFinite(priceMax) || priceMax === 0) setPriceMax(priceMaxInit);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filtered = useMemo(() => {
+    let items = TRANSPORT.filter((t) => {
+      const hay = `${t.name} ${t.city} ${t.type} ${t.desc}`.toLowerCase();
+      const matchesText = q ? hay.includes(q.toLowerCase()) : true;
+      const matchesType = vType === "Wszystkie" ? true : t.type === vType;
+      const matchesSeats = minSeats > 0 ? (t.capacity ?? 0) >= minSeats : true;
+      const matchesPrice = t.priceFrom >= priceMin && t.priceFrom <= priceMax;
+      return matchesText && matchesType && matchesSeats && matchesPrice;
+    });
+
+    switch (sort) {
+      case "cena-rosn":
+        items = items.sort((a, b) => a.priceFrom - b.priceFrom);
+        break;
+      case "cena-malej":
+        items = items.sort((a, b) => b.priceFrom - a.priceFrom);
+        break;
+      case "miejsca":
+        items = items.sort((a, b) => (b.capacity ?? 0) - (a.capacity ?? 0));
+        break;
+      case "nazwa":
+        items = items.sort((a, b) => a.name.localeCompare(b.name, "pl"));
+        break;
+      default:
+        items = items.sort((a, b) => a.priceFrom - b.priceFrom);
+    }
+    return items;
+  }, [q, vType, minSeats, priceMin, priceMax, sort]);
+
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Transport</h2>
-      <p className="text-stone-600">Busy dla gości, samochód ślubny, szeroka możliwość wyboru!</p>
+      <div className="rounded-2xl border border-stone-200 bg-white p-4 shadow">
+        <div className="grid gap-3 md:grid-cols-12 md:items-end">
+          <div className="md:col-span-4">
+            <h2 className="text-xl font-semibold">Transport</h2>
+            <p className="text-stone-600">Busy dla gości, samochód ślubny, klasyki bądź nowoczesne limuzyny — szeroki wybór!</p>
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-2 md:col-span-8 md:grid-cols-5">
+              <div>
+                <label className="mb-1 block text-xs text-stone-500">Szukaj</label>
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="nazwa, miasto, opis..."
+                  className="w-full rounded-xl border border-stone-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs text-stone-500">Min. liczba miejsc</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={minSeats}
+                  onChange={(e) => setMinSeats(Math.max(0, Number(e.target.value) || 0))}
+                  placeholder="np. 50"
+                  className="w-full rounded-xl border border-stone-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs text-stone-500">Cena min (zł)</label>
+                <input
+                  type="number"
+                  min={priceMinInit}
+                  max={priceMax}
+                  placeholder="min"
+                  onChange={(e) => setPriceMin(Math.max(priceMinInit, Number(e.target.value) || priceMinInit))}
+                  className="w-full rounded-xl border border-stone-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs text-stone-500">Cena max (zł)</label>
+                <input
+                  type="number"
+                  min={priceMin}
+                  max={priceMaxInit}
+                  placeholder="max"
+                  onChange={(e) => setPriceMax(Math.min(priceMaxInit, Number(e.target.value) || priceMaxInit))}
+                  className="w-full rounded-xl border border-stone-300 px-3 py-2"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs text-stone-500">Sortowanie</label>
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as SortKey)}
+                  className="w-full rounded-xl border border-stone-300 px-3 py-2 bg-brand-100"
+                >
+                  <option value="rekomendowane">Rekomendowane</option>
+                  <option value="cena-rosn">Cena: rosnąco</option>
+                  <option value="cena-malej">Cena: malejąco</option>
+                  <option value="miejsca">Liczba miejsc</option>
+                  <option value="nazwa">Nazwa A–Z</option>
+                </select>
+              </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between text-sm text-stone-600">
+        <span>Zakres cen: <strong>{nf(priceMinInit)}–{nf(priceMaxInit)} zł</strong></span>
+        <span>Znaleziono: <strong>{filtered.length}</strong></span>
+      </div>
 
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {TRANSPORT.map((t) => (
+        {filtered.map((t) => (
           <div key={t.id} className="bg-white rounded-2xl shadow border border-stone-200/60 overflow-hidden">
-            <img src={t.img} alt={`${t.name}`} className="w-full h-40 object-cover" loading="lazy" />
+            <img src={t.img} alt={t.name} className="w-full h-40 object-cover" loading="lazy" />
             <div className="p-4">
               <div className="font-medium">{t.name}</div>
               <div className="text-sm text-stone-600">
                 {t.city} • {t.type}
                 {t.capacity ? <> • {t.capacity} miejsc</> : null} • od{" "}
-                <strong>{new Intl.NumberFormat("pl-PL").format(t.priceFrom)} zł</strong>
+                <strong>{nf(t.priceFrom)} zł</strong>
               </div>
               <div className="text-sm text-stone-600 mt-1">Opis: {t.desc}</div>
               <div className="pt-3 flex flex-wrap gap-2">
@@ -74,7 +201,7 @@ export default function Transport() {
               <p className="text-sm text-stone-600">
                 {selected.city} • {selected.type}
                 {selected.capacity ? <> • {selected.capacity} miejsc</> : null} • od{" "}
-                <strong>{new Intl.NumberFormat("pl-PL").format(selected.priceFrom)} zł</strong>
+                <strong>{nf(selected.priceFrom)} zł</strong>
               </p>
               <p className="text-sm text-stone-600 mt-2">{selected.desc}</p>
               <div className="mt-4 flex gap-2 justify-end">

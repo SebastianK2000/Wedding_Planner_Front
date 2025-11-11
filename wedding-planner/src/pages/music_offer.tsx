@@ -53,7 +53,6 @@ export default function MusicOffer() {
     { label: "Nagłośnienie 2× tops + sub", icon: <Speaker className="h-4 w-4" /> },
     { label: "Mikrofony bezprzewodowe", icon: <Mic2 className="h-4 w-4" /> },
     { label: "Oświetlenie sceniczne + sterownik", icon: <Lightbulb className="h-4 w-4" /> },
-    { label: "Maszyna do dymu (opcjonalnie)" },
   ];
 
   const addons: { label: string; desc?: string; price?: string }[] = [

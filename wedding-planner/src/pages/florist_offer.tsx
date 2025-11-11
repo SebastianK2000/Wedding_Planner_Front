@@ -111,11 +111,11 @@ export default function FloristOffer() {
             <div>
               <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">{item.title}</h1>
               <p className="mt-1 text-stone-600">
-                {item.companyName} • od <strong>{new Intl.NumberFormat("pl-PL").format(item.priceFrom)} zł</strong>
+                {item.city} • {item.companyName} • od <strong>{new Intl.NumberFormat("pl-PL").format(item.priceFrom)} zł</strong>
               </p>
             </div>
             <div className="hidden md:flex items-center gap-2" aria-hidden>
-              <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2.5 py-1 text-xs font-medium text-rose-700">
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
                 <Sparkles size={14} /> Rekomendowany florysta
               </span>
             </div>

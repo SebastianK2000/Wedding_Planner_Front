@@ -35,13 +35,13 @@ export default function App() {
             <Route path="/muzyka" element={<Music />} />
             <Route path="/fotograf" element={<Photographer />} />
             <Route path="/florysta" element={<Florist />} />
-            <Route path="/przewodnik" element={<Guide />} />
             <Route path="/transport" element={<Transport />} />
 
             <Route path="/goscie" element={<Guests />} />
             <Route path="/budzet" element={<Budget />} />
             <Route path="/zadania" element={<Tasks />} />
             <Route path="/harmonogram" element={<Timeline />} />
+            <Route path="/przewodnik" element={<Guide />} />
 
             <Route path="/fotograf/:id" element={<PhotographerOffer />} />
             <Route path="/florysta/:id" element={<FloristOffer />} />

@@ -20,7 +20,7 @@ const VENUES = [
     rating: 4.7,
     tags: ["rustykalna", "ogród", "noclegi"],
     image:
-      "https://images.unsplash.com/photo-1521540216272-a50305cd4421?q=80&w=1200&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1738225734899-30852be7e396?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8d2VkZGluZyUyMHBsYWNlfGVufDB8fDB8fHww&auto=format&fit=crop&q=60&w=600",
     description:
       "Elegancki dwór z ogrodem i oranżerią. Możliwość ceremonii plenerowej, 45 miejsc noclegowych.",
   },
@@ -33,7 +33,7 @@ const VENUES = [
     rating: 4.8,
     tags: ["loft", "industrial", "wegańskie menu"],
     image:
-      "https://images.unsplash.com/photo-1523906630133-f6934a1ab1b9?q=80&w=1200&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1738225734899-30852be7e396?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8d2VkZGluZyUyMHBsYWNlfGVufDB8fDB8fHww&auto=format&fit=crop&q=60&w=600",
     description:
       "Industrialny klimat, cegła i stal, doskonałe na nowoczesne przyjęcia. Sala + antresola.",
   },
@@ -46,7 +46,7 @@ const VENUES = [
     rating: 4.9,
     tags: ["pałac", "nad wodą", "ceremonia plenerowa"],
     image:
-      "https://images.unsplash.com/photo-1496412705862-e0088f16f791?q=80&w=1200&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1738225734899-30852be7e396?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8d2VkZGluZyUyMHBsYWNlfGVufDB8fDB8fHww&auto=format&fit=crop&q=60&w=600",
     description:
       "Klasyczny pałac z widokiem na jezioro, pomost do first look i zdjęć plenerowych.",
   },
@@ -59,11 +59,77 @@ const VENUES = [
     rating: 4.5,
     tags: ["folwark", "rustic", "namiot"],
     image:
-      "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?q=80&w=1200&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1738225734899-30852be7e396?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8d2VkZGluZyUyMHBsYWNlfGVufDB8fDB8fHww&auto=format&fit=crop&q=60&w=600",
     description:
       "Sielski folwark z opcją namiotu. Idealny dla mniejszych wesel, parkiet na świeżym powietrzu.",
   },
+  {
+    id: "v5",
+    name: "Oranżeria Magnolia",
+    city: "Poznań",
+    capacity: 150,
+    pricePerPerson: 320,
+    rating: 4.6,
+    tags: ["oranżeria", "ogród", "boho"],
+    image:
+      "https://images.unsplash.com/photo-1738225734899-30852be7e396?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8d2VkZGluZyUyMHBsYWNlfGVufDB8fDB8fHww&auto=format&fit=crop&q=60&w=600",
+    description:
+      "Szklana oranżeria otoczona zielenią. Idealna na śluby boho, dodatkowa strefa chillout.",
+  },
+  {
+    id: "v6",
+    name: "Barn Forty Three",
+    city: "Łódź",
+    capacity: 130,
+    pricePerPerson: 275,
+    rating: 4.7,
+    tags: ["stodoła", "rustykalna", "dancefloor"],
+    image:
+      "https://images.unsplash.com/photo-1738225734899-30852be7e396?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8d2VkZGluZyUyMHBsYWNlfGVufDB8fDB8fHww&auto=format&fit=crop&q=60&w=600",
+    description:
+      "Nowoczesna stodoła z wysokim sufitem i widoczną więźbą, efektowne światła i duży parkiet.",
+  },
+  {
+    id: "v7",
+    name: "Villa Różana",
+    city: "Sopot",
+    capacity: 100,
+    pricePerPerson: 360,
+    rating: 4.8,
+    tags: ["villa", "blisko morza", "noclegi"],
+    image:
+      "https://images.unsplash.com/photo-1738225734899-30852be7e396?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8d2VkZGluZyUyMHBsYWNlfGVufDB8fDB8fHww&auto=format&fit=crop&q=60&w=600",
+    description:
+      "Kamienica w kurortowym stylu, 10 minut spacerem od plaży, taras na aperitivo.",
+  },
+  {
+    id: "v8",
+    name: "Nowa Fabryka Eventów",
+    city: "Katowice",
+    capacity: 200,
+    pricePerPerson: 300,
+    rating: 4.6,
+    tags: ["industrial", "loft", "scena"],
+    image:
+      "https://images.unsplash.com/photo-1738225734899-30852be7e396?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8d2VkZGluZyUyMHBsYWNlfGVufDB8fDB8fHww&auto=format&fit=crop&q=60&w=600",
+    description:
+      "Postindustrialna przestrzeń z antresolą i sceną dla zespołu, możliwość dojazdu food trucków.",
+  },
+  {
+    id: "v9",
+    name: "Dworek Winny Zakątek",
+    city: "Zielona Góra",
+    capacity: 140,
+    pricePerPerson: 285,
+    rating: 4.7,
+    tags: ["dworek", "winnica", "ceremonia plenerowa"],
+    image:
+      "https://images.unsplash.com/photo-1738225734899-30852be7e396?ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxzZWFyY2h8M3x8d2VkZGluZyUyMHBsYWNlfGVufDB8fDB8fHww&auto=format&fit=crop&q=60&w=600",
+    description:
+      "Dworek pośród winorośli z altaną ślubną i widokiem na wzgórza winnicy, regionalne menu.",
+  },
 ];
+
 
 const CART_KEY_VENUES = "wp_cart_venues";
 

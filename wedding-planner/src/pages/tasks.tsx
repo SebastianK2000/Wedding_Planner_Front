@@ -1,18 +1,27 @@
 import { useEffect, useMemo, useState } from "react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { 
+  ListTodo, 
+  Circle, 
+  Clock, 
+  CheckCircle2, 
+  Plus, 
+  FileDown, 
+  Search, 
+  MoreHorizontal, 
+  X, 
+  AlertCircle, 
+  Calendar as CalendarIcon,
+  Flag,
+  Check
+} from "lucide-react";
 
 type Status = "todo" | "doing" | "done";
 type Priority = "low" | "normal" | "high";
 type Category =
-  | "Sala"
-  | "Muzyka"
-  | "Fotograf"
-  | "Florysta"
-  | "Goście"
-  | "Budżet"
-  | "Papeteria"
-  | "Transport"
-  | "Dekoracje"
-  | "Inne";
+  | "Sala" | "Muzyka" | "Fotograf" | "Florysta" | "Goście" 
+  | "Budżet" | "Papeteria" | "Transport" | "Dekoracje" | "Inne";
 
 type Task = {
   id: string;
@@ -27,16 +36,8 @@ type Task = {
 };
 
 const CATEGORIES: Category[] = [
-  "Sala",
-  "Muzyka",
-  "Fotograf",
-  "Florysta",
-  "Goście",
-  "Budżet",
-  "Papeteria",
-  "Transport",
-  "Dekoracje",
-  "Inne",
+  "Sala", "Muzyka", "Fotograf", "Florysta", "Goście", 
+  "Budżet", "Papeteria", "Transport", "Dekoracje", "Inne",
 ];
 
 const LS_KEY = "wp_tasks";
@@ -58,15 +59,17 @@ function addDaysISO(startISO: string, days: number) {
   return d.toISOString().slice(0, 10);
 }
 
-const TEMPLATES: Task[] = [
-  { id: uid(), label: "Potwierdzić rezerwację sali i zaliczkę", status: "todo", priority: "high", category: "Sala", due: addDaysISO(todayISO(), 7), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: uid(), label: "Podpisanie umowy z fotografem", status: "todo", priority: "normal", category: "Fotograf", due: addDaysISO(todayISO(), 10), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: uid(), label: "Playlista ‚must/never’ dla DJ/Zespołu", status: "todo", priority: "low", category: "Muzyka", due: addDaysISO(todayISO(), 21), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: uid(), label: "Wybór bukietu i dekoracji stołów", status: "todo", priority: "normal", category: "Florysta", due: addDaysISO(todayISO(), 30), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: uid(), label: "Rozesłać zaproszenia (RSVP T-60)", status: "todo", priority: "high", category: "Papeteria", due: addDaysISO(todayISO(), 45), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: uid(), label: "Lista gości – weryfikacja diet", status: "todo", priority: "normal", category: "Goście", due: addDaysISO(todayISO(), 14), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: uid(), label: "Transport gości – wstępne trasy", status: "todo", priority: "low", category: "Transport", due: addDaysISO(todayISO(), 25), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-];
+const priorityMap: Record<Priority, string> = {
+  high: "Wysoki",
+  normal: "Normalny",
+  low: "Niski",
+};
+
+const statusMap: Record<Status, string> = {
+  todo: "Do zrobienia",
+  doing: "W toku",
+  done: "Gotowe",
+};
 
 export default function Tasks() {
   const [tasks, setTasks] = useState<Task[]>(() => {
@@ -94,6 +97,13 @@ export default function Tasks() {
   useEffect(() => {
     localStorage.setItem(LS_KEY, JSON.stringify(tasks));
   }, [tasks]);
+
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   const stats = useMemo(() => {
     const total = tasks.length;
@@ -153,22 +163,22 @@ export default function Tasks() {
       },
       ...prev,
     ]);
-    setToast("Dodano zadanie");
+    setToast("Dodano zadanie: " + label);
   }
 
   function save(task: Task) {
     setTasks((prev) => {
       const exists = prev.some((t) => t.id === task.id);
-      const next = exists
+      return exists
         ? prev.map((t) => (t.id === task.id ? { ...task, updatedAt: new Date().toISOString() } : t))
         : [{ ...task, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...prev];
-      return next;
     });
     setEditing(null);
     setToast("Zapisano zadanie");
   }
 
   function remove(id: string) {
+    if(!confirm("Czy na pewno chcesz usunąć to zadanie?")) return;
     setTasks((prev) => prev.filter((t) => t.id !== id));
     setToast("Usunięto zadanie");
   }
@@ -187,188 +197,240 @@ export default function Tasks() {
     );
   }
 
-  function exportCSV() {
-    const header = ["id","label","status","priority","category","due","notes","createdAt","updatedAt"];
-    const rows = filtered.map((t) => [
-      t.id, t.label, t.status, t.priority, t.category, t.due ?? "", t.notes ?? "", t.createdAt, t.updatedAt
+  function exportPDF() {
+    const doc = new jsPDF();
+    doc.setFontSize(16);
+    doc.text("Lista Zadan - Planer Weselny", 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Postep: ${stats.progress}% ukonczonych zadan.`, 14, 22);
+
+    const tableColumn = ["Zadanie", "Kategoria", "Priorytet", "Termin", "Status", "Notatki"];
+    const tableRows = filtered.map((t) => [
+      t.label,
+      t.category,
+      priorityMap[t.priority],
+      t.due ? formatPL(t.due) : "-",
+      statusMap[t.status],
+      t.notes || ""
     ]);
-    const csv = [header, ...rows].map(r => r.map(x => `"${String(x).replace(/"/g,'""')}"`).join(",")).join("\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "zadania.csv"; a.click();
-    URL.revokeObjectURL(url);
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 28,
+      styles: { fontSize: 9 },
+      headStyles: { fillColor: [231, 108, 129] },
+    });
+    doc.save("zadania-weselne.pdf");
   }
 
-  function loadTemplates() {
-    setTasks((prev) => [...TEMPLATES.map(t => ({ ...t, id: uid() })), ...prev]);
-    setToast("Dodano szablony zadań");
-  }
-
-  const baseBtn =
-    "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-500/50 focus-visible:ring-offset-2";
-  const btnPrimary = baseBtn + " bg-accent-500 text-white hover:bg-accent-600";
-  const btnSecondary = baseBtn + " border border-brand-200 bg-brand-100 text-stone-700 hover:bg-brand-200";
+  const btnPrimary = "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition-colors shadow-md shadow-accent-500/20";
+  const btnSecondary = "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium border border-brand-200 bg-white text-stone-700 hover:bg-brand-50 transition-colors";
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-end justify-between gap-3 flex-wrap">
+    <div className="space-y-6 max-w-6xl mx-auto">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-xl font-semibold">Zadania</h2>
-          <p className="text-stone-600">Planer weselny: statusy, terminy i priorytety.</p>
+          <h2 className="text-2xl font-bold text-stone-900">Zadania</h2>
+          <p className="text-stone-500 mt-1">Zarządzaj listą rzeczy do zrobienia przed wielkim dniem.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button className={btnSecondary} onClick={loadTemplates}>Szablony</button>
-          <button className={btnSecondary} onClick={exportCSV}>Eksport CSV</button>
-          <button className={btnPrimary} onClick={() => setEditing(makeEmptyTask())}>Dodaj zadanie</button>
+          <button className={btnSecondary} onClick={exportPDF}>
+            <FileDown className="h-4 w-4" /> PDF
+          </button>
+          <button className={btnPrimary} onClick={() => setEditing(makeEmptyTask())}>
+            <Plus className="h-4 w-4" /> Dodaj zadanie
+          </button>
         </div>
       </div>
 
-      <div className="grid sm:grid-cols-4 gap-3">
-        <Stat label="Wszystkie" value={String(stats.total)} />
-        <Stat label="Do zrobienia" value={String(stats.todo)} />
-        <Stat label="W toku" value={String(stats.doing)} />
-        <Stat label="Gotowe" value={String(stats.done)} tone="ok" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard icon={<ListTodo />} label="Wszystkie" value={String(stats.total)} tone="neutral" />
+        <StatCard icon={<Circle />} label="Do zrobienia" value={String(stats.todo)} tone="neutral" />
+        <StatCard icon={<Clock />} label="W toku" value={String(stats.doing)} tone="blue" />
+        <StatCard icon={<CheckCircle2 />} label="Gotowe" value={String(stats.done)} tone="green" />
       </div>
-      <Progress value={stats.progress} />
 
-      {/* Filters */}
-      <div className="bg-white rounded-2xl shadow border border-stone-200/60 p-4">
-        <div className="flex flex-col lg:flex-row gap-3">
-          <div className="flex-1">
-            <label className="block text-xs text-stone-500 mb-1">Szukaj</label>
+      <div className="bg-white rounded-3xl border border-stone-200 p-5 shadow-sm">
+        <div className="flex justify-between items-center mb-2">
+          <div className="flex flex-col">
+             <span className="text-sm font-medium text-stone-700">Postęp organizacji</span>
+             <span className="text-xs text-stone-500">
+               {stats.progress === 100 ? "Wszystko gotowe! Gratulacje! 🎉" : 
+                stats.progress > 70 ? "Już z górki! Oby tak dalej." : "Przed Tobą jeszcze trochę pracy."}
+             </span>
+          </div>
+          <span className="text-xl font-bold text-accent-600">{stats.progress}%</span>
+        </div>
+        <div className="h-3 w-full rounded-full bg-stone-100 overflow-hidden">
+          <div 
+            className="h-full bg-gradient-to-r from-accent-400 to-accent-600 transition-all duration-1000 ease-out" 
+            style={{ width: `${stats.progress}%` }} 
+          />
+        </div>
+      </div>
+
+      <div className="bg-white rounded-3xl border border-stone-200 p-1 shadow-sm flex flex-col lg:flex-row gap-2 items-center">
+         <div className="relative flex-1 w-full lg:w-auto">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400" />
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="nazwa/notatki…"
-              className="bg-brand-100 w-full rounded-xl border border-stone-300 px-3 py-2"
+              placeholder="Szukaj zadania..."
+              className="w-full bg-transparent pl-9 pr-4 py-3 text-sm outline-none text-stone-700 placeholder:text-stone-400"
             />
-          </div>
-          <Select
-            label="Status"
-            value={statusFilter}
-            onChange={(v) => setStatusFilter(v as Status | "wszyscy")}
-            options={[
-              { value: "wszyscy", label: "Wszyscy" },
-              { value: "todo", label: "Do zrobienia" },
-              { value: "doing", label: "W toku" },
-              { value: "done", label: "Gotowe" },
-            ]}
-            className="bg-brand-100 text-stone-600 border-stone-300"
-          />
-          <Select
-            label="Kategoria"
-            value={catFilter}
-            onChange={(v) => setCatFilter(v as Category | "wszystkie")}
-            options={[{ value: "wszystkie", label: "Wszystkie" }, ...CATEGORIES.map((c) => ({ value: c, label: c }))]}
-            className="bg-brand-100 text-stone-600 border-stone-300"
-          />
-          <Select
-            label="Priorytet"
-            value={prioFilter}
-            onChange={(v) => setPrioFilter(v as Priority | "wszystkie")}
-            options={[
-              { value: "wszystkie", label: "Wszystkie" },
-              { value: "high", label: "Wysoki" },
-              { value: "normal", label: "Normalny" },
-              { value: "low", label: "Niski" },
-            ]}
-            className="bg-brand-100 text-stone-600 border-stone-300"
-          />
-        </div>
+         </div>
+         
+         <div className="h-8 w-px bg-stone-200 hidden lg:block"></div>
+
+         <div className="flex gap-2 w-full lg:w-auto px-2 lg:px-0 pb-2 lg:pb-0 overflow-x-auto">
+            <Select
+              value={statusFilter}
+              onChange={(v) => setStatusFilter(v as Status | "wszyscy")}
+              options={[
+                { value: "wszyscy", label: "Status: Wszyscy" },
+                { value: "todo", label: "Do zrobienia" },
+                { value: "doing", label: "W toku" },
+                { value: "done", label: "Gotowe" },
+              ]}
+              className="bg-white min-w-[160px]"
+            />
+            <Select
+              value={catFilter}
+              onChange={(v) => setCatFilter(v as Category | "wszystkie")}
+              options={[{ value: "wszystkie", label: "Kategoria: Wszystkie" }, ...CATEGORIES.map((c) => ({ value: c, label: c }))]}
+              className="bg-white min-w-[180px]"
+            />
+            <Select
+              value={prioFilter}
+              onChange={(v) => setPrioFilter(v as Priority | "wszystkie")}
+              options={[
+                { value: "wszystkie", label: "Priorytet" },
+                { value: "high", label: "Wysoki" },
+                { value: "normal", label: "Normalny" },
+                { value: "low", label: "Niski" },
+              ]}
+              className="bg-white min-w-[140px]"
+            />
+         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow border border-stone-200/60 p-4">
-        <div className="text-sm text-stone-600 mb-3">Szybkie dodawanie</div>
-        <div className="flex flex-wrap gap-2">
-          <QuickChip onClick={() => addQuick("Potwierdzić godziny i menu", "Sala")} label="Sala" />
-          <QuickChip onClick={() => addQuick("Wysłać brief muzyczny do DJ", "Muzyka")} label="Muzyka" />
-          <QuickChip onClick={() => addQuick("Lista ujęć must-have", "Fotograf")} label="Fotograf" />
-          <QuickChip onClick={() => addQuick("Dobór kwiatów sezonowych", "Florysta")} label="Florysta" />
-          <QuickChip onClick={() => addQuick("Zebrać preferencje diet", "Goście")} label="Goście" />
-          <QuickChip onClick={() => addQuick("Sprawdzić zaliczki/faktury", "Budżet")} label="Budżet" />
-        </div>
-      </div>
+      {statusFilter === "wszyscy" && query === "" && (
+          <div className="flex flex-wrap gap-2 px-1">
+             <span className="inline-flex items-center text-xs font-medium text-stone-500 mr-1">Szybki start:</span>
+            <QuickChip onClick={() => addQuick("Potwierdzić godziny i menu", "Sala")} label="Sala" />
+            <QuickChip onClick={() => addQuick("Wysłać brief muzyczny", "Muzyka")} label="Muzyka" />
+            <QuickChip onClick={() => addQuick("Lista ujęć must-have", "Fotograf")} label="Fotograf" />
+          </div>
+      )}
 
       {Object.entries(groups).map(([title, list]) => (
-        <section key={title} className="space-y-2">
-          <h3 className="text-sm font-semibold text-stone-700">{title} <span className="text-stone-400">({list.length})</span></h3>
+           list.length > 0 && (
+            <section key={title} className="space-y-3">
+              <h3 className="flex items-center gap-2 text-sm font-bold text-stone-800 uppercase tracking-wider pl-1 mt-4">
+                 {title} <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 text-xs">{list.length}</span>
+              </h3>
 
-          <div className="hidden md:block bg-white rounded-2xl shadow border border-stone-200/60 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-stone-500 border-b border-stone-200/60">
-                  <th className="py-3 px-4">Zadanie</th>
-                  <th className="py-3 px-4">Kategoria</th>
-                  <th className="py-3 px-4">Priorytet</th>
-                  <th className="py-3 px-4">Termin</th>
-                  <th className="py-3 px-4">Status</th>
-                  <th className="py-3 px-4"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {list.map((t) => (
-                  <tr key={t.id} className="border-b border-stone-100">
-                    <td className="py-3 px-4">
-                      <label className="inline-flex items-start gap-2">
-                        <input type="checkbox" className="mt-1" checked={t.status === "done"} onChange={() => toggleDone(t.id)} />
-                        <div>
-                          <div className={`font-medium ${t.status === "done" ? "line-through text-stone-400" : ""}`}>{t.label}</div>
-                          {t.notes && <div className="text-xs text-stone-500">{t.notes}</div>}
-                        </div>
-                      </label>
-                    </td>
-                    <td className="py-3 px-4">{t.category}</td>
-                    <td className="py-3 px-4"><PriorityBadge p={t.priority} /></td>
-                    <td className="py-3 px-4"><DueBadge due={t.due} /></td>
-                    <td className="py-3 px-4"><StatusBadge s={t.status} /></td>
-                    <td className="py-3 px-4">
-                      <div className="flex gap-2 justify-end">
-                        <button className="px-3 py-1 rounded-xl border border-stone-300 hover:bg-stone-50" onClick={() => setEditing(t)}>Edytuj</button>
-                        <button className="px-3 py-1 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50" onClick={() => remove(t.id)}>Usuń</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-                {list.length === 0 && (
-                  <tr><td colSpan={6} className="py-6 text-center text-stone-500">Brak zadań.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="md:hidden grid gap-2">
-            {list.map((t) => (
-              <div key={t.id} className="rounded-2xl border border-stone-200 bg-white p-3">
-                <div className="flex items-start gap-2">
-                  <input type="checkbox" className="mt-1" checked={t.status === "done"} onChange={() => toggleDone(t.id)} />
-                  <div className="flex-1">
-                    <div className={`font-medium ${t.status === "done" ? "line-through text-stone-400" : ""}`}>{t.label}</div>
-                    <div className="text-xs text-stone-600 flex flex-wrap gap-2 mt-1">
-                      <span>{t.category}</span> • <PriorityBadge p={t.priority} inline />
-                      {t.due && <> • <DueBadge due={t.due} inline /></>}
-                    </div>
-                    {t.notes && <div className="text-xs text-stone-500 mt-1">{t.notes}</div>}
-                  </div>
+              <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden">
+                <div className="hidden md:block">
+                  <table className="w-full text-sm text-left">
+                    <thead className="bg-stone-50/50 text-stone-500">
+                      <tr>
+                        <th className="py-3 px-6 font-medium w-10"></th>
+                        <th className="py-3 px-4 font-medium">Zadanie</th>
+                        <th className="py-3 px-4 font-medium">Kategoria</th>
+                        <th className="py-3 px-4 font-medium">Priorytet</th>
+                        <th className="py-3 px-4 font-medium">Termin</th>
+                        <th className="py-3 px-4 font-medium text-right"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-stone-100">
+                      {list.map((t) => (
+                        <tr key={t.id} className={`group transition-colors hover:bg-stone-50/50 ${t.status === "done" ? "bg-stone-50/30" : ""}`}>
+                          <td className="py-3 pl-6 w-10 align-middle">
+                            <div 
+                                onClick={() => toggleDone(t.id)} 
+                                className={`w-5 h-5 rounded-full border cursor-pointer flex items-center justify-center transition-all ${t.status === "done" ? "bg-green-500 border-green-500" : "bg-white border-stone-300 hover:border-accent-500"}`}
+                            >
+                                {t.status === "done" && <Check className="h-3 w-3 text-white" />}
+                            </div>
+                          </td>
+                          <td className="py-3 px-4 align-middle">
+                             <div className={`font-medium text-base transition-all ${t.status === "done" ? "line-through text-stone-400" : "text-stone-800"}`}>
+                               {t.label}
+                             </div>
+                             {t.notes && <div className="text-xs text-stone-500 mt-1 line-clamp-1">{t.notes}</div>}
+                          </td>
+                          <td className="py-3 px-4 align-middle">
+                             <span className="bg-stone-100 px-2 py-1 rounded-lg text-xs font-medium text-stone-600">{t.category}</span>
+                          </td>
+                          <td className="py-3 px-4 align-middle"><PriorityBadge p={t.priority} /></td>
+                          <td className="py-3 px-4 align-middle"><DueBadge due={t.due} /></td>
+                          <td className="py-3 px-4 align-middle text-right">
+                            <div className="flex gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                              <ActionButton icon={<MoreHorizontal className="h-4 w-4" />} onClick={() => setEditing(t)} label="Edytuj" />
+                              <ActionButton icon={<X className="h-4 w-4" />} onClick={() => remove(t.id)} label="Usuń" danger />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div className="mt-2 flex gap-2">
-                  <button className="px-3 py-1 rounded-xl border border-stone-300" onClick={() => setEditing(t)}>Edytuj</button>
-                  <button className="ml-auto px-3 py-1 rounded-xl border border-rose-200 text-rose-700" onClick={() => remove(t.id)}>Usuń</button>
+
+                <div className="md:hidden p-4 space-y-3">
+                  {list.map((t) => (
+                    <div key={t.id} className={`rounded-2xl border p-4 bg-white shadow-sm ${t.status === "done" ? "border-stone-100 opacity-70" : "border-stone-200"}`}>
+                       <div className="flex items-start gap-3">
+                          <div 
+                                onClick={() => toggleDone(t.id)} 
+                                className={`mt-1 w-5 h-5 rounded-full border cursor-pointer flex-shrink-0 flex items-center justify-center transition-all ${t.status === "done" ? "bg-green-500 border-green-500" : "bg-white border-stone-300"}`}
+                            >
+                                {t.status === "done" && <Check className="h-3 w-3 text-white" />}
+                          </div>
+                          <div className="flex-1">
+                             <div className={`font-medium text-stone-900 ${t.status === "done" ? "line-through text-stone-400" : ""}`}>{t.label}</div>
+                             <div className="text-xs text-stone-500 mt-1">{t.category}</div>
+                             
+                             <div className="flex flex-wrap gap-2 mt-3">
+                                <PriorityBadge p={t.priority} inline />
+                                {t.due && <DueBadge due={t.due} inline />}
+                             </div>
+                          </div>
+                       </div>
+                       <div className="flex justify-end gap-2 border-t border-stone-100 pt-3 mt-3">
+                          <button onClick={() => setEditing(t)} className="text-xs font-medium px-3 py-1.5 bg-stone-100 rounded-lg text-stone-600">Edytuj</button>
+                          <button onClick={() => remove(t.id)} className="text-xs font-medium px-3 py-1.5 bg-rose-50 rounded-lg text-rose-600">Usuń</button>
+                       </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            ))}
-            {list.length === 0 && <div className="text-center text-stone-500 py-4">Brak zadań.</div>}
-          </div>
-        </section>
+            </section>
+           )
       ))}
 
+      {filtered.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-16 text-center bg-stone-50 rounded-3xl border border-dashed border-stone-300">
+           <div className="bg-white p-4 rounded-full shadow-sm mb-4">
+              <Search className="h-8 w-8 text-stone-300" />
+           </div>
+           <h3 className="text-lg font-medium text-stone-900">Brak zadań</h3>
+           <p className="text-stone-500 max-w-xs mt-1 mb-6">Nie znaleźliśmy zadań pasujących do Twoich filtrów lub lista jest pusta.</p>
+           <button className={btnPrimary} onClick={() => setEditing(makeEmptyTask())}>
+              Dodaj pierwsze zadanie
+           </button>
+        </div>
+      )}
+
       {editing && (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={() => setEditing(null)}>
-          <div className="w-full max-w-xl rounded-2xl bg-white shadow-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
-            <div className="p-4 border-b border-stone-200/60">
-              <div className="text-lg font-semibold">
-                {tasks.some((x) => x.id === editing.id) ? "Edytuj zadanie" : "Dodaj zadanie"}
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/20 backdrop-blur-sm p-4" onClick={() => setEditing(null)}>
+          <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
+              <div className="text-lg font-bold text-stone-800">
+                {tasks.some((x) => x.id === editing.id) ? "Edytuj zadanie" : "Nowe zadanie"}
               </div>
+              <button onClick={() => setEditing(null)} className="text-stone-400 hover:text-stone-600">Anuluj</button>
             </div>
             <TaskEditor value={editing} onCancel={() => setEditing(null)} onSave={save} />
           </div>
@@ -376,8 +438,9 @@ export default function Tasks() {
       )}
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-2xl bg-stone-900 text-white px-4 py-2 shadow">
-          {toast}
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 rounded-2xl bg-stone-900/90 backdrop-blur text-white px-5 py-3 shadow-xl animate-in slide-in-from-bottom-5 fade-in duration-300">
+          <CheckCircle2 className="h-5 w-5 text-green-400" />
+          <span className="text-sm font-medium">{toast}</span>
         </div>
       )}
     </div>
@@ -400,52 +463,56 @@ function makeEmptyTask(): Task {
   };
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "ok" }) {
-  const cls = tone
-    ? "bg-green-50 border-green-200 text-green-900"
-    : "bg-brand-50 border-brand-200 text-stone-900";
+function StatCard({ label, value, icon, tone }: { label: string; value: string; icon: React.ReactNode; tone: "neutral" | "blue" | "green" | "orange" }) {
+  const styles = {
+    neutral: "bg-white text-stone-600 border-stone-200",
+    blue: "bg-blue-50 text-blue-700 border-blue-100",
+    green: "bg-green-50 text-green-700 border-green-100",
+    orange: "bg-amber-50 text-amber-700 border-amber-100",
+  };
+
   return (
-    <div className={`rounded-2xl border p-4 ${cls}`}>
-      <div className="text-sm">{label}</div>
-      <div className="text-2xl font-semibold">{value}</div>
+    <div className={`rounded-3xl border p-5 flex items-center gap-4 ${styles[tone]} transition-all hover:shadow-sm`}>
+       <div className="p-3 bg-white/60 rounded-2xl shadow-sm">
+          <div className="h-6 w-6 flex items-center justify-center">{icon}</div>
+       </div>
+       <div>
+          <div className="text-3xl font-bold mb-1">{value}</div>
+          <div className="text-xs font-medium opacity-80 uppercase tracking-wide">{label}</div>
+       </div>
     </div>
   );
 }
 
-function Progress({ value }: { value: number }) {
-  return (
-    <div className="bg-white rounded-2xl shadow border border-stone-200/60 p-4">
-      <div className="flex items-center justify-between text-sm mb-2">
-        <div className="text-stone-600">Postęp</div>
-        <div className="font-medium">{value}%</div>
-      </div>
-      <div className="h-2 w-full rounded-full bg-stone-100 overflow-hidden">
-        <div className="h-full bg-accent-500" style={{ width: `${value}%` }} />
-      </div>
-    </div>
-  );
+function ActionButton({ icon, onClick, label, danger }: { icon: React.ReactNode, onClick: () => void, label: string, danger?: boolean }) {
+   return (
+     <button 
+       onClick={onClick} 
+       title={label}
+       className={`p-2 rounded-xl transition-colors ${danger ? "text-stone-400 hover:text-rose-600 hover:bg-rose-50" : "text-stone-400 hover:text-accent-600 hover:bg-accent-50"}`}
+     >
+        {icon}
+     </button>
+   )
 }
 
 function Select({
-  label,
   value,
   onChange,
   options,
   className,
 }: {
-  label: string;
   value: string;
   onChange: (v: string) => void;
   options: { value: string; label: string }[];
   className?: string;
 }) {
   return (
-    <div className="w-full lg:w-56">
-      <label className="block text-xs text-stone-500 mb-1">{label}</label>
+    <div className="relative min-w-[140px]">
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full rounded-xl border border-stone-300 px-3 py-2 ${className ?? ""}`}
+        className={`w-full appearance-none rounded-xl border border-stone-200 px-4 py-2 pr-8 text-sm font-medium text-stone-600 outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 ${className ?? ""}`}
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -453,6 +520,9 @@ function Select({
           </option>
         ))}
       </select>
+      <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-400">
+         <MoreHorizontal className="h-4 w-4" />
+      </div>
     </div>
   );
 }
@@ -460,35 +530,34 @@ function Select({
 function PriorityBadge({ p, inline }: { p: Priority; inline?: boolean }) {
   const map = {
     high: "bg-rose-100 text-rose-700 border-rose-200",
-    normal: "bg-amber-100 text-amber-800 border-amber-200",
-    low: "bg-green-100 text-green-700 border-green-200",
+    normal: "bg-amber-50 text-amber-700 border-amber-200",
+    low: "bg-green-50 text-green-700 border-green-200",
   } as const;
   const labels = { high: "Wysoki", normal: "Normalny", low: "Niski" } as const;
   return (
-    <span className={`px-2 py-0.5 rounded-full border text-xs ${map[p]} ${inline ? "" : "inline-block"}`}>
+    <span className={`px-2.5 py-0.5 rounded-lg border text-xs font-medium ${map[p]} ${inline ? "" : "inline-flex"}`}>
       {labels[p]}
     </span>
   );
 }
 
-function StatusBadge({ s }: { s: Status }) {
-  const map = {
-    todo: "bg-stone-100 text-stone-700 border-stone-200",
-    doing: "bg-blue-100 text-blue-700 border-blue-200",
-    done: "bg-green-100 text-green-700 border-green-200",
-  } as const;
-  const labels = { todo: "Do zrobienia", doing: "W toku", done: "Gotowe" } as const;
-  return <span className={`px-2 py-0.5 rounded-full border text-xs ${map[s]}`}>{labels[s]}</span>;
-}
-
 function DueBadge({ due, inline }: { due?: string | null; inline?: boolean }) {
-  if (!due) return <span className={`text-xs text-stone-500 ${inline ? "" : "inline-block"}`}>—</span>;
+  if (!due) return <span className={`text-xs text-stone-400 ${inline ? "" : "inline-block"}`}>—</span>;
   const today = todayISO();
-  let cls = "bg-stone-100 text-stone-700 border-stone-200";
-  if (due < today) cls = "bg-rose-100 text-rose-700 border-rose-200";
-  else if (due === today) cls = "bg-amber-100 text-amber-800 border-amber-200";
-  else cls = "bg-green-100 text-green-700 border-green-200";
-  return <span className={`px-2 py-0.5 rounded-full border text-xs ${cls} ${inline ? "" : "inline-block"}`}>{formatPL(due)}</span>;
+  let cls = "text-stone-600 bg-stone-100";
+  let icon = null;
+
+  if (due < today) {
+     cls = "text-rose-700 bg-rose-50 border border-rose-200";
+     icon = <AlertCircle className="h-3 w-3 mr-1" />;
+  }
+  else if (due === today) cls = "text-amber-700 bg-amber-50 border border-amber-200";
+  
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-medium ${cls} ${inline ? "" : ""}`}>
+      {icon} {formatPL(due)}
+    </span>
+  );
 }
 
 function formatPL(iso: string) {
@@ -500,9 +569,9 @@ function QuickChip({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       onClick={onClick}
-      className="px-3 py-1 rounded-xl border border-brand-200 bg-brand-100 text-stone-700 hover:bg-brand-200 text-sm"
+      className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-dashed border-brand-300 bg-brand-50 text-stone-600 hover:bg-brand-100 hover:border-brand-400 hover:text-accent-700 text-xs transition-colors"
     >
-      {label}
+      <Plus className="h-3 w-3" /> {label}
     </button>
   );
 }
@@ -531,93 +600,117 @@ function TaskEditor({
   }
 
   return (
-    <form onSubmit={submit} className="p-4 space-y-3">
-      <div className="grid sm:grid-cols-2 gap-3">
+    <form onSubmit={submit} className="p-6 space-y-4">
+      <div className="space-y-4">
         <div>
-          <label className="block text-xs text-stone-500 mb-1">Zadanie</label>
+          <label className="block text-xs font-medium text-stone-500 mb-1.5">Co jest do zrobienia?</label>
           <input
             value={form.label}
             onChange={(e) => update("label", e.target.value)}
-            className="bg-brand-100 w-full rounded-xl border border-stone-300 px-3 py-2"
-            placeholder="np. Zamówić tort"
+            className="w-full rounded-xl border border-stone-200 px-4 py-3 text-stone-800 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 outline-none transition-all"
+            placeholder="np. Zamówić tort weselny"
             autoFocus
           />
         </div>
-        <div>
-          <label className="block text-xs text-stone-500 mb-1">Kategoria</label>
-          <select
-            value={form.category}
-            onChange={(e) => update("category", e.target.value as Category)}
-            className="bg-brand-100 w-full rounded-xl border border-stone-300 px-3 py-2"
-          >
-            {CATEGORIES.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
+        
+        <div className="grid grid-cols-2 gap-4">
+           <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1.5">Kategoria</label>
+            <div className="relative">
+                <select
+                value={form.category}
+                onChange={(e) => update("category", e.target.value as Category)}
+                className="w-full appearance-none rounded-xl border border-stone-200 px-4 py-2.5 bg-white text-stone-700 outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
+                >
+                {CATEGORIES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                ))}
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
+                   <MoreHorizontal className="h-4 w-4" />
+                </div>
+            </div>
+           </div>
+           <div>
+            <label className="block text-xs font-medium text-stone-500 mb-1.5">Termin</label>
+            <div className="relative">
+                <input
+                    type="date"
+                    value={form.due ?? ""}
+                    onChange={(e) => update("due", e.target.value || null)}
+                    className="w-full rounded-xl border border-stone-200 px-4 py-2.5 text-stone-700 outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
+                />
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
+                   <CalendarIcon className="h-4 w-4" />
+                </div>
+            </div>
+           </div>
         </div>
-      </div>
 
-      <div className="grid sm:grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs text-stone-500 mb-1">Priorytet</label>
-          <select
-            value={form.priority}
-            onChange={(e) => update("priority", e.target.value as Priority)}
-            className="bg-brand-100 w-full rounded-xl border border-stone-300 px-3 py-2"
-          >
-            <option value="high">Wysoki</option>
-            <option value="normal">Normalny</option>
-            <option value="low">Niski</option>
-          </select>
+        <div className="grid grid-cols-2 gap-4">
+            <div>
+                <label className="block text-xs font-medium text-stone-500 mb-1.5">Priorytet</label>
+                <div className="flex bg-stone-100 rounded-xl p-1">
+                    {(["low", "normal", "high"] as const).map((p) => (
+                        <button
+                            key={p}
+                            type="button"
+                            onClick={() => update("priority", p)}
+                            className={`flex-1 text-xs py-1.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1 ${
+                                form.priority === p 
+                                ? "bg-white text-stone-900 shadow-sm" 
+                                : "text-stone-500 hover:text-stone-700"
+                            }`}
+                        >
+                            {p === "high" && <Flag className="h-3 w-3" />} {priorityMap[p]}
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div>
+                <label className="block text-xs font-medium text-stone-500 mb-1.5">Status</label>
+                <div className="flex bg-stone-100 rounded-xl p-1">
+                    {(["todo", "doing", "done"] as const).map((s) => (
+                        <button
+                            key={s}
+                            type="button"
+                            onClick={() => update("status", s)}
+                            className={`flex-1 text-xs py-1.5 rounded-lg font-medium transition-all ${
+                                form.status === s 
+                                ? "bg-white text-stone-900 shadow-sm" 
+                                : "text-stone-500 hover:text-stone-700"
+                            }`}
+                        >
+                            {s === "todo" ? "Start" : s === "doing" ? "W toku" : "Koniec"}
+                        </button>
+                    ))}
+                </div>
+            </div>
         </div>
+
         <div>
-          <label className="block text-xs text-stone-500 mb-1">Status</label>
-          <select
-            value={form.status}
-            onChange={(e) => update("status", e.target.value as Status)}
-            className="bg-brand-100 w-full rounded-xl border border-stone-300 px-3 py-2"
-          >
-            <option value="todo">Do zrobienia</option>
-            <option value="doing">W toku</option>
-            <option value="done">Gotowe</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs text-stone-500 mb-1">Termin</label>
-          <input
-            type="date"
-            value={form.due ?? ""}
-            onChange={(e) => update("due", e.target.value || null)}
-            className="bg-brand-100 w-full rounded-xl border border-stone-300 px-3 py-2"
+          <label className="block text-xs font-medium text-stone-500 mb-1.5">Dodatkowe notatki</label>
+          <textarea
+            value={form.notes ?? ""}
+            onChange={(e) => update("notes", e.target.value)}
+            className="w-full rounded-xl border border-stone-200 px-4 py-3 text-stone-700 focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 outline-none transition-all min-h-[80px]"
+            placeholder="Szczegóły, telefony, adresy..."
           />
         </div>
       </div>
 
-      <div>
-        <label className="block text-xs text-stone-500 mb-1">Notatki (opcjonalnie)</label>
-        <textarea
-          value={form.notes ?? ""}
-          onChange={(e) => update("notes", e.target.value)}
-          className="bg-brand-100 w-full rounded-xl border border-stone-300 px-3 py-2"
-          rows={3}
-          placeholder="np. kontakt do dostawcy, warunki umowy…"
-        />
-      </div>
+      {error && <div className="text-sm text-rose-600 font-medium flex items-center gap-1"><AlertCircle className="h-4 w-4"/> {error}</div>}
 
-      {error && <div className="text-sm text-rose-600">{error}</div>}
-
-      <div className="flex justify-end gap-2 pt-2">
+      <div className="flex justify-end gap-3 pt-4 border-t border-stone-100">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 rounded-2xl text-sm border border-stone-300 hover:bg-stone-50"
+          className="px-5 py-2.5 rounded-xl text-sm font-medium text-stone-600 hover:bg-stone-100 transition-colors"
         >
           Anuluj
         </button>
-        <button type="submit" className="px-4 py-2 rounded-2xl text-sm bg-accent-500 text-white hover:bg-accent-600">
-          Zapisz
+        <button type="submit" className="px-6 py-2.5 rounded-xl text-sm font-bold bg-accent-500 text-white hover:bg-accent-600 shadow-lg shadow-accent-500/30 transition-all transform active:scale-95">
+          Zapisz zmiany
         </button>
       </div>
     </form>

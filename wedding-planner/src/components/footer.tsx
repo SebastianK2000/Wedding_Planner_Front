@@ -1,7 +1,7 @@
 import { NavLink } from "react-router-dom";
 import {
   Facebook, Instagram, Mail, Phone, MapPin,
-  Github
+  Github, Heart, ArrowRight
 } from "lucide-react";
 
 const primary = [
@@ -28,10 +28,13 @@ const resources = [
 
 function Logo() {
   return (
-    <NavLink to="/" className="inline-block">
-      <div className="text-2xl font-semibold leading-5 text-white">
+    <NavLink to="/" className="inline-flex items-center gap-2 group">
+      <div className="p-1.5 bg-stone-800 rounded-lg group-hover:bg-accent-600 transition-colors">
+         <Heart size={20} className="text-white fill-white" />
+      </div>
+      <div className="text-xl font-bold leading-none text-white">
         <span className="block">Wedding</span>
-        <span className="block -mt-1">Planner</span>
+        <span className="block text-stone-400 text-sm font-medium group-hover:text-stone-300 transition-colors">Planner</span>
       </div>
     </NavLink>
   );
@@ -61,57 +64,32 @@ export default function Footer() {
   }
 
   return (
-    <footer className="mt-12 bg-stone-900 text-stone-300">
-      <div className="h-1 w-full bg-gradient-to-r from-stone-800 via-stone-700 to-stone-800" />
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="grid gap-10 md:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-4">
+    <footer className="mt-20 bg-stone-950 text-stone-400 border-t border-stone-900">
+      
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
+        <div className="grid gap-12 md:grid-cols-2 lg:grid-cols-12">
+          
+          <div className="lg:col-span-4 space-y-6">
             <Logo />
-            <p className="text-sm text-stone-400">
-              Planer ślubny w jednym miejscu: sala, muzyka, fotograf, florysta,
-              transport, goście, budżet i zadania. Minimalny hałas – maksimum porządku.
+            <p className="text-sm leading-relaxed max-w-sm text-stone-500">
+              Twój osobisty asystent w planowaniu wesela. 
+              Wszystko w jednym miejscu: od budżetu po listę gości. 
+              Minimalny hałas – maksimum porządku.
             </p>
 
-            <div className="flex items-center gap-3 text-stone-400">
-              <a
-                href="https://github.com/"
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-stone-800 hover:bg-stone-700"
-                aria-label="GitHub"
-                title="GitHub"
-              >
-                <Github size={18} />
-              </a>
-              <a
-                href="#!"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-stone-800 hover:bg-stone-700"
-                aria-label="Facebook"
-                title="Facebook"
-              >
-                <Facebook size={18} />
-              </a>
-              <a
-                href="#!"
-                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-stone-800 hover:bg-stone-700"
-                aria-label="Instagram"
-                title="Instagram"
-              >
-                <Instagram size={18} />
-              </a>
+            <div className="flex items-center gap-3">
+              <SocialLink href="https://github.com/" icon={<Github size={18} />} label="GitHub" />
+              <SocialLink href="#!" icon={<Facebook size={18} />} label="Facebook" />
+              <SocialLink href="#!" icon={<Instagram size={18} />} label="Instagram" />
             </div>
           </div>
 
-          <div>
-            <h4 className="text-sm font-semibold text-white mb-3">Nawigacja</h4>
-            <ul className="space-y-2">
+          <div className="lg:col-span-2">
+            <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Nawigacja</h4>
+            <ul className="space-y-3 text-sm">
               {primary.map((l) => (
                 <li key={l.to}>
-                  <NavLink
-                    to={l.to}
-                    className="text-sm text-stone-400 hover:text-white"
-                  >
+                  <NavLink to={l.to} className="hover:text-accent-500 transition-colors">
                     {l.label}
                   </NavLink>
                 </li>
@@ -119,31 +97,23 @@ export default function Footer() {
             </ul>
           </div>
 
-          <div>
-            <h4 className="text-sm font-semibold text-white mb-3">Moduły</h4>
-            <ul className="space-y-2">
+          <div className="lg:col-span-2">
+            <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-4">Narzędzia</h4>
+            <ul className="space-y-3 text-sm">
               {modules.map((l) => (
                 <li key={l.to}>
-                  <NavLink
-                    to={l.to}
-                    className="text-sm text-stone-400 hover:text-white"
-                  >
+                  <NavLink to={l.to} className="hover:text-accent-500 transition-colors">
                     {l.label}
                   </NavLink>
                 </li>
               ))}
             </ul>
-
-            <h4 className="text-sm font-semibold text-white mt-6 mb-3">
-              Zasoby
-            </h4>
-            <ul className="space-y-2">
+            
+            <h4 className="text-sm font-bold text-white uppercase tracking-wider mt-8 mb-4">Pomoc</h4>
+            <ul className="space-y-3 text-sm">
               {resources.map((l) => (
                 <li key={l.to}>
-                  <NavLink
-                    to={l.to}
-                    className="text-sm text-stone-400 hover:text-white"
-                  >
+                  <NavLink to={l.to} className="hover:text-accent-500 transition-colors">
                     {l.label}
                   </NavLink>
                 </li>
@@ -151,57 +121,64 @@ export default function Footer() {
             </ul>
           </div>
 
-          <div>
-            <h4 className="text-sm font-semibold text-white mb-3">
-              Newsletter
+          <div className="lg:col-span-4">
+            <h4 className="text-sm font-bold text-white uppercase tracking-wider mb-4">
+              Zostań na bieżąco
             </h4>
-            <p className="text-sm text-stone-400 mb-2">
-              Zero spamu. Raz na jakiś czas praktyczne checklisty i inspiracje.
+            <p className="text-sm text-stone-500 mb-4">
+              Zero spamu. Raz na miesiąc praktyczne porady i inspiracje ślubne.
             </p>
-            <form onSubmit={onSubmit} className="flex gap-2">
-              <input
-                name="email"
-                type="email"
-                placeholder="Twój e-mail"
-                className="flex-1 rounded-xl border border-stone-700 bg-stone-800/70 px-3 py-2 text-sm placeholder:text-stone-500 focus:border-stone-500 focus:outline-none"
-              />
+            <form onSubmit={onSubmit} className="flex flex-col gap-2 sm:flex-row">
+              <div className="relative flex-1">
+                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-600" size={16} />
+                 <input
+                    name="email"
+                    type="email"
+                    placeholder="Twój e-mail"
+                    className="w-full rounded-xl border border-stone-800 bg-stone-900 py-2.5 pl-9 pr-4 text-sm text-stone-200 placeholder:text-stone-600 focus:border-accent-600 focus:outline-none focus:ring-1 focus:ring-accent-600 transition-all"
+                 />
+              </div>
               <button
-                className="rounded-2xl bg-accent-500 px-4 py-2 text-sm font-medium text-white hover:bg-accent-600"
+                className="rounded-xl bg-accent-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-accent-500 transition-colors shadow-lg shadow-accent-900/20 flex items-center justify-center gap-2"
                 type="submit"
               >
-                Zapisz
+                Zapisz <ArrowRight size={16} />
               </button>
             </form>
 
-            <div className="mt-6 space-y-2 text-sm text-stone-400">
-              <div className="flex items-center gap-2">
-                <Mail size={16} /> kontakt@weddingplanner.app
+            <div className="mt-8 pt-8 border-t border-stone-900 space-y-3 text-sm text-stone-500">
+              <div className="flex items-center gap-3 hover:text-stone-300 transition-colors">
+                <Mail size={16} className="text-accent-600" /> 
+                <span>kontakt@weddingplanner.app</span>
               </div>
-              <div className="flex items-center gap-2">
-                <Phone size={16} /> +48 600 000 000
+              <div className="flex items-center gap-3 hover:text-stone-300 transition-colors">
+                <Phone size={16} className="text-accent-600" /> 
+                <span>+48 600 000 000</span>
               </div>
-              <div className="flex items-center gap-2">
-                <MapPin size={16} /> Kraków / Warszawa (zdalnie)
+              <div className="flex items-center gap-3 hover:text-stone-300 transition-colors">
+                <MapPin size={16} className="text-accent-600" /> 
+                <span>Kraków / Warszawa (zdalnie)</span>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-10 border-t border-stone-800 pt-6 flex flex-col md:flex-row gap-3 items-center justify-between">
-          <div className="text-xs text-stone-500">
-            © {new Date().getFullYear()} Wedding Planner. Wszystkie prawa zastrzeżone.
-            <br />
-            Stworzone przez Sebastian Kościółek.
+        <div className="mt-16 border-t border-stone-900 pt-8 flex flex-col md:flex-row gap-6 items-center justify-between text-xs text-stone-600">
+          <div>
+            © {new Date().getFullYear()} Wedding Planner. Wszelkie prawa zastrzeżone.
+            <span className="hidden md:inline"> • </span>
+            <br className="md:hidden" />
+            Stworzone z ❤️ przez Sebastian Kościółek.
           </div>
 
-          <div className="flex flex-wrap gap-4 text-xs">
-            <NavLink to="/polityka-prywatnosci" className="text-stone-400 hover:text-white">
+          <div className="flex gap-6">
+            <NavLink to="/polityka-prywatnosci" className="hover:text-stone-300 transition-colors">
               Polityka prywatności
             </NavLink>
-            <NavLink to="/polityka-prywatnosci" className="text-stone-400 hover:text-white">
+            <NavLink to="/polityka-prywatnosci" className="hover:text-stone-300 transition-colors">
               Regulamin
             </NavLink>
-            <NavLink to="/polityka-prywatnosci" className="text-stone-400 hover:text-white">
+            <NavLink to="/polityka-prywatnosci" className="hover:text-stone-300 transition-colors">
               Cookies
             </NavLink>
           </div>
@@ -209,4 +186,19 @@ export default function Footer() {
       </div>
     </footer>
   );
+}
+
+function SocialLink({ href, icon, label }: { href: string, icon: React.ReactNode, label: string }) {
+   return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-stone-900 text-stone-500 hover:bg-stone-800 hover:text-white hover:scale-110 transition-all duration-300 border border-stone-800"
+        aria-label={label}
+        title={label}
+      >
+        {icon}
+      </a>
+   )
 }

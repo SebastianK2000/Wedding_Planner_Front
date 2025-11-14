@@ -1,272 +1,332 @@
 import { Link } from "react-router-dom";
+import { 
+  Target, 
+  CalendarDays, 
+  Wallet, 
+  MessageSquare, 
+  Clock, 
+  ShieldAlert, 
+  Mail, 
+  Palette, 
+  CheckSquare, 
+  ArrowRight 
+} from "lucide-react";
 
 export default function Guide() {
-  const baseCard = "bg-white rounded-2xl shadow border border-stone-200/60 p-5";
+  const baseCard = "bg-white rounded-3xl shadow-sm border border-stone-200 p-6 md:p-8 transition-all hover:shadow-md";
 
   const btnPrimary =
-    "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-medium " +
-    "bg-accent-500 text-white hover:bg-accent-600 transition-colors";
+    "inline-flex items-center gap-2 justify-center rounded-2xl px-5 py-2.5 text-sm font-bold " +
+    "bg-accent-500 text-white hover:bg-accent-600 shadow-lg shadow-accent-500/20 transition-all transform active:scale-95";
+  
   const btnGhost =
-    "inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-medium " +
-    "border border-brand-200 bg-brand-100 text-stone-700 hover:bg-brand-200 transition-colors";
+    "inline-flex items-center justify-center rounded-2xl px-5 py-2.5 text-sm font-medium " +
+    "border border-brand-200 bg-brand-50 text-stone-700 hover:bg-brand-100 transition-colors";
+
+  const menuItems = [
+    { id: "strategia", label: "1. Strategia i cele", icon: <Target size={16} /> },
+    { id: "harmonogram", label: "2. Harmonogram", icon: <CalendarDays size={16} /> },
+    { id: "budzet", label: "3. Budżet i koszty", icon: <Wallet size={16} /> },
+    { id: "dostawcy", label: "4. Pytania do dostawców", icon: <MessageSquare size={16} /> },
+    { id: "dzien-slubu", label: "5. Dzień ślubu", icon: <Clock size={16} /> },
+    { id: "plan-b", label: "6. Plan awaryjny", icon: <ShieldAlert size={16} /> },
+    { id: "komunikacja", label: "7. Komunikacja i RSVP", icon: <Mail size={16} /> },
+    { id: "stylistyka", label: "8. Stylistyka", icon: <Palette size={16} /> },
+    { id: "checklisty", label: "9. Checklisty", icon: <CheckSquare size={16} /> },
+  ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-12 gap-6">
-      <aside className="col-span-12 md:col-span-3">
-        <div className={`${baseCard} sticky top-24`}>
-          <h2 className="text-base font-semibold mb-3">Przewodnik</h2>
-          <ul className="space-y-2 text-sm">
-            {[
-              ["strategia", "1. Strategia i cele"],
-              ["harmonogram", "2. Harmonogram"],
-              ["budzet", "3. Budżet i koszty"],
-              ["dostawcy", "4. Pytania do dostawców"],
-              ["dzien-slubu", "5. Dzień ślubu"],
-              ["plan-b", "6. Plan awaryjny"],
-              ["komunikacja", "7. Komunikacja i RSVP"],
-              ["stylistyka", "8. Stylistyka i paleta"],
-              ["checklisty", "9. Checklisty"],
-            ].map(([id, label]) => (
-              <li key={id}>
-                <a
-                  href={`#${id}`}
-                  className="block rounded-xl px-3 py-2 hover:bg-stone-50 text-stone-700"
-                >
-                  {label}
-                </a>
-              </li>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-12 gap-8">
+      
+      <aside className="col-span-12 md:col-span-3 hidden md:block">
+        <div className="bg-white rounded-3xl border border-stone-200 p-4 sticky top-24 shadow-sm">
+          <h2 className="text-sm font-bold text-stone-900 uppercase tracking-wider px-3 mb-3">Spis treści</h2>
+          <nav className="space-y-1">
+            {menuItems.map(({ id, label, icon }) => (
+              <a
+                key={id}
+                href={`#${id}`}
+                className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-stone-600 hover:bg-brand-50 hover:text-accent-600 transition-colors"
+              >
+                <span className="text-stone-400">{icon}</span>
+                {label}
+              </a>
             ))}
-          </ul>
-          <div className="mt-4 flex gap-2">
-            <Link to="/zadania" className={btnPrimary}>Przenieś do Zadań</Link>
-            <Link to="/budzet" className={btnGhost}>Budżet</Link>
+          </nav>
+          
+          <div className="mt-6 pt-6 border-t border-stone-100 space-y-2">
+            <Link to="/zadania" className="flex items-center justify-center w-full rounded-xl bg-accent-50 text-accent-700 px-4 py-3 text-sm font-bold hover:bg-accent-100 transition-colors">
+              Moje Zadania <ArrowRight size={16} className="ml-2" />
+            </Link>
+            <Link to="/budzet" className="flex items-center justify-center w-full rounded-xl border border-stone-200 text-stone-600 px-4 py-3 text-sm font-medium hover:bg-stone-50 transition-colors">
+              Mój Budżet
+            </Link>
           </div>
         </div>
       </aside>
 
-      <main className="col-span-12 md:col-span-9 space-y-6">
-        <section className={`${baseCard} bg-brand-50/60`}>
-          <h1 className="text-2xl font-semibold">Planowanie wesela – przewodnik krok po kroku</h1>
-          <p className="text-stone-600 mt-2">
-            Spójna strategia, realny budżet i jasne role. Poniżej znajdziesz harmonogram,
-            listy kontrolne oraz pytania do dostawców – gotowe do skopiowania.
+      <main className="col-span-12 md:col-span-9 space-y-8">
+        
+        <section className="bg-gradient-to-br from-brand-50 to-white rounded-3xl border border-brand-100 p-8 md:p-10">
+          <h1 className="text-3xl md:text-4xl font-bold text-stone-900 mb-4">
+            Planowanie wesela – <span className="text-accent-600">krok po kroku</span>
+          </h1>
+          <p className="text-lg text-stone-600 leading-relaxed max-w-3xl">
+            Spójna strategia, realny budżet i jasne role to klucz do sukcesu. 
+            Poniżej znajdziesz kompletny przewodnik, harmonogramy oraz gotowe listy kontrolne, 
+            które pomogą Ci zapanować nad każdym detalem.
           </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <span className="px-3 py-1 rounded-xl bg-brand-100 text-stone-700 text-xs">#ECE2D0 — kolor bazowy</span>
-            <span className="px-3 py-1 rounded-xl bg-accent-500 text-white text-xs">Akcent CTA</span>
-          </div>
         </section>
 
         <section id="strategia" className={baseCard}>
-          <h3 className="text-lg font-semibold">1. Strategia i cele</h3>
-          <div className="grid sm:grid-cols-2 gap-4 mt-3">
-            <div className="rounded-xl border border-brand-200 bg-brand-100/60 p-4">
-              <p className="font-medium mb-2">Ustalcie priorytety</p>
-              <ul className="list-disc pl-5 text-stone-700 text-sm space-y-1">
-                <li>Klimat: rustykalny / klasyczny / modern</li>
-                <li>Widełki gości i budżetu</li>
-                <li>Must-have vs nice-to-have</li>
+          <div className="flex items-center gap-3 mb-6">
+             <div className="p-2.5 bg-accent-100 text-accent-600 rounded-xl"><Target size={24} /></div>
+             <h3 className="text-xl font-bold text-stone-900">1. Strategia i cele</h3>
+          </div>
+          
+          <div className="grid sm:grid-cols-2 gap-5">
+            <div className="rounded-2xl bg-stone-50 p-5 border border-stone-100">
+              <p className="font-bold text-stone-800 mb-3 flex items-center gap-2">
+                 <span className="w-2 h-2 rounded-full bg-accent-500"></span> Priorytety
+              </p>
+              <ul className="space-y-2 text-sm text-stone-600 pl-4 list-disc marker:text-stone-300">
+                <li><strong>Klimat:</strong> rustykalny / glamour / boho / modern</li>
+                <li><strong>Skala:</strong> kameralne przyjęcie vs wielkie wesele</li>
+                <li><strong>Budżet:</strong> sztywne ramy vs elastyczność</li>
               </ul>
             </div>
-            <div className="rounded-xl border border-stone-200 p-4">
-              <p className="font-medium mb-2">Zakres i odpowiedzialności</p>
-              <ul className="list-disc pl-5 text-stone-700 text-sm space-y-1">
-                <li>Ślub cywilny/kościelny, przyjęcie, poprawiny?</li>
-                <li>Decydenci i sposób akceptacji wydatków</li>
-                <li>Jeden koordynator kontaktu w dniu ślubu</li>
+            <div className="rounded-2xl bg-stone-50 p-5 border border-stone-100">
+              <p className="font-bold text-stone-800 mb-3 flex items-center gap-2">
+                 <span className="w-2 h-2 rounded-full bg-accent-500"></span> Podział ról
+              </p>
+              <ul className="space-y-2 text-sm text-stone-600 pl-4 list-disc marker:text-stone-300">
+                <li>Kto podejmuje ostateczne decyzje?</li>
+                <li>Kto płaci za poszczególne elementy?</li>
+                <li>Jeden główny koordynator w dniu ślubu (np. świadek)</li>
               </ul>
             </div>
           </div>
         </section>
 
         <section id="harmonogram" className={baseCard}>
-          <h3 className="text-lg font-semibold">2. Harmonogram (12 miesięcy → 0)</h3>
-          <ol className="mt-3 space-y-6">
+          <div className="flex items-center gap-3 mb-6">
+             <div className="p-2.5 bg-blue-100 text-blue-600 rounded-xl"><CalendarDays size={24} /></div>
+             <h3 className="text-xl font-bold text-stone-900">2. Harmonogram (Oś czasu)</h3>
+          </div>
+
+          <div className="space-y-6 relative pl-4">
+            <div className="absolute left-[27px] top-2 bottom-2 w-0.5 bg-stone-100" />
             {[
               {
                 title: "12–9 miesięcy przed",
+                color: "bg-blue-500",
                 items: [
                   "Określenie budżetu i wstępnej listy gości.",
-                  <>Rezerwacja <Link className="underline" to="/sala-weselna">sali weselnej</Link> (data, zaliczka, umowa).</>,
-                  <>Wybór <Link className="underline" to="/fotograf">fotografa</Link> i <Link className="underline" to="/muzyka">muzyki</Link> (portfolio, umowy).</>,
-                  "Moodboard i paleta kolorów.",
+                  <>Rezerwacja <Link className="text-accent-600 hover:underline font-medium" to="/sala-weselna">sali weselnej</Link> (data, zaliczka).</>,
+                  <>Wybór <Link className="text-accent-600 hover:underline font-medium" to="/fotograf">fotografa</Link> i zespołu/DJ.</>,
+                  "Stworzenie moodboardu inspiracji.",
                 ],
               },
               {
                 title: "9–6 miesięcy przed",
+                color: "bg-indigo-500",
                 items: [
-                  "Florysta i dekoracje, wstępny plan stołów, menu.",
-                  "Transport dla gości i pary młodej.",
+                  "Wybór florysty i dekoracji, wstępne menu.",
+                  "Rezerwacja transportu dla gości.",
                   "Sesja narzeczeńska (opcjonalnie).",
-                  "Save-the-date do gości.",
+                  "Wysłanie Save-the-date.",
                 ],
               },
               {
                 title: "6–3 miesiące przed",
+                color: "bg-purple-500",
                 items: [
-                  "Finalizacja menu i tortu, preferencje dietetyczne.",
-                  "Plan atrakcji: pierwszy taniec, podziękowania, fotobudka.",
-                  "Technikalia z zespołem/DJ: repertuar, przerwy, sprzęt.",
+                  "Degustacja menu i wybór tortu.",
+                  "Plan atrakcji: pierwszy taniec, podziękowania.",
+                  "Ustalenia techniczne z obsługą (sprzęt, noclegi).",
                 ],
               },
               {
                 title: "3–1 miesiąc przed",
+                color: "bg-fuchsia-500",
                 items: [
-                  "Rozsadzenie gości i układ sali, tablica stołów.",
-                  "Harmonogram dnia rozesłany do dostawców.",
-                  "Potwierdzenia RSVP i potrzeby specjalne.",
-                  "Plan B (pogoda, opóźnienia, awarie).",
+                  "Rozsadzenie gości przy stołach.",
+                  "Potwierdzenie ostatecznej liczby osób (RSVP).",
+                  "Przygotowanie Planu B (pogoda/awarie).",
                 ],
               },
               {
-                title: "T-30 → T-0",
+                title: "Ostatnie 30 dni",
+                color: "bg-rose-500",
                 items: [
-                  "Potwierdzenie godzin i kontaktów z dostawcami.",
-                  "Przekazanie numeru do koordynatora.",
-                  "Pakiet „dzień ślubu”: dokumenty, obrączki, awaryjna kosmetyczka, apteczka.",
+                  "Potwierdzenie godzin z podwykonawcami.",
+                  "Spakowanie niezbędnika (obrączki, dokumenty).",
+                  "Przekazanie listy kontaktów świadkom.",
                 ],
               },
-            ].map(({ title, items }, idx) => (
-              <li key={idx} className="relative pl-6 border-l-2 border-brand-200">
-                <span className="absolute -left-[7px] top-1 w-3 h-3 rounded-full bg-accent-500" />
-                <p className="font-medium">{title}</p>
-                <ul className="list-disc pl-5 text-sm text-stone-700 mt-1 space-y-1">
-                  {items.map((it, i) => <li key={i}>{it}</li>)}
-                </ul>
-              </li>
+            ].map(({ title, color, items }, idx) => (
+              <div key={idx} className="relative flex gap-4 items-start group">
+                <div className={`mt-1.5 w-3 h-3 rounded-full ring-4 ring-white z-10 ${color}`} />
+                <div className="flex-1 pb-2">
+                   <h4 className="font-bold text-stone-800 mb-2">{title}</h4>
+                   <ul className="list-disc pl-5 text-sm text-stone-600 space-y-1 marker:text-stone-300">
+                      {items.map((it, i) => <li key={i}>{it}</li>)}
+                   </ul>
+                </div>
+              </div>
             ))}
-          </ol>
+          </div>
+          
+          <div className="mt-6 pt-6 border-t border-stone-100">
+            <Link to="/harmonogram" className={btnPrimary}>Przejdź do interaktywnego Harmonogramu</Link>
+          </div>
         </section>
 
         <section id="budzet" className={baseCard}>
-          <h3 className="text-lg font-semibold">3. Budżet i koszty</h3>
-          <p className="text-stone-600">
-            Śledź wydatki i zostaw bufor 10–15%. Rozdziel <em>planowane</em> vs <em>rzeczywiste</em>.
+          <div className="flex items-center gap-3 mb-4">
+             <div className="p-2.5 bg-green-100 text-green-600 rounded-xl"><Wallet size={24} /></div>
+             <h3 className="text-xl font-bold text-stone-900">3. Budżet i koszty</h3>
+          </div>
+          <p className="text-stone-600 mb-6">
+            Zawsze zakładaj <strong>bufor bezpieczeństwa (10–15%)</strong> na nieprzewidziane wydatki. 
+            Pamiętaj o "ukrytych" kosztach: napiwki, korkowe, poprawki krawieckie.
           </p>
-          <div className="overflow-x-auto mt-3">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left text-stone-500">
-                  <th className="py-2">Pozycja</th>
-                  <th className="py-2">Widełki</th>
-                  <th className="py-2">Uwagi</th>
+          
+          <div className="overflow-hidden rounded-2xl border border-stone-200">
+            <table className="w-full text-sm text-left">
+              <thead className="bg-stone-50 text-stone-500 font-medium">
+                <tr>
+                  <th className="py-3 px-4">Kategoria</th>
+                  <th className="py-3 px-4">Orientacyjny koszt</th>
+                  <th className="py-3 px-4">Na co zwrócić uwagę?</th>
                 </tr>
               </thead>
-              <tbody className="[&>tr:not(:last-child)]:border-b [&>tr]:border-stone-200/60">
-                <tr><td className="py-2">Sala (z menu)</td><td>240–420 zł / os.</td><td>Wliczone napoje? Korek?</td></tr>
-                <tr><td className="py-2">Muzyka (DJ/zespół)</td><td>3.5–8 tys. zł</td><td>Sprzęt i światło w cenie?</td></tr>
-                <tr><td className="py-2">Fotograf</td><td>4–7 tys. zł</td><td>Album, liczba zdjęć, termin oddania.</td></tr>
-                <tr><td className="py-2">Florystyka</td><td>2–8 tys. zł</td><td>Sezonowość kwiatów, zakres dekoracji.</td></tr>
-                <tr><td className="py-2">Transport</td><td>1–3 tys. zł</td><td>Liczba kursów, trasy.</td></tr>
+              <tbody className="divide-y divide-stone-100 text-stone-700">
+                <tr><td className="py-3 px-4 font-medium">Talerzyk (Menu)</td><td className="py-3 px-4 text-stone-500">250–450 zł / os.</td><td className="py-3 px-4">Czy napoje/alkohol są w cenie?</td></tr>
+                <tr><td className="py-3 px-4 font-medium">DJ / Zespół</td><td className="py-3 px-4 text-stone-500">4–9 tys. zł</td><td className="py-3 px-4">Nagłośnienie, oświetlenie, ZAiKS.</td></tr>
+                <tr><td className="py-3 px-4 font-medium">Foto + Video</td><td className="py-3 px-4 text-stone-500">6–12 tys. zł</td><td className="py-3 px-4">Liczba godzin, dron, teledysk.</td></tr>
+                <tr><td className="py-3 px-4 font-medium">Dekoracje</td><td className="py-3 px-4 text-stone-500">3–10 tys. zł</td><td className="py-3 px-4">Żywe kwiaty są najdroższe.</td></tr>
               </tbody>
             </table>
           </div>
-          <div className="mt-3">
-            <Link to="/budzet" className={btnPrimary}>Otwórz moduł Budżet</Link>
+          <div className="mt-6">
+            <Link to="/budzet" className={btnGhost}>Otwórz kalkulator Budżetu</Link>
           </div>
         </section>
 
         <section id="dostawcy" className={baseCard}>
-          <h3 className="text-lg font-semibold">4. Pytania do dostawców</h3>
-          <div className="grid sm:grid-cols-2 gap-4 mt-3">
+          <div className="flex items-center gap-3 mb-6">
+             <div className="p-2.5 bg-amber-100 text-amber-600 rounded-xl"><MessageSquare size={24} /></div>
+             <h3 className="text-xl font-bold text-stone-900">4. O co pytać dostawców?</h3>
+          </div>
+          
+          <div className="grid sm:grid-cols-2 gap-4">
             {[
-              ["Sala weselna", ["Co obejmuje cena (menu, napoje, dekor)?", "Godziny i limity głośności.", "Korkowe/tort – opłaty serwisowe.", "Back-up prądu/klimatyzacji."]],
-              ["Muzyka", ["Skład, przerwy, logistyka sprzętu.", "Repertuar must/never play.", "Kontakt z salą dot. zasilania."]],
-              ["Fotograf", ["Liczba godzin i zdjęć, termin oddania.", "Backup plików, prawa do publikacji.", "Albumy/odbitki w cenie?"]],
-              ["Florysta", ["Zakres (bukiet, łuk, ścianka, stoły).", "Sezonowość i alternatywy.", "Czas montażu/demontażu."]],
-              ["Transport", ["Sloty czasowe, liczba kursów.", "Miejsca zbiórek i oznaczenia."]],
-            ].map(([head, list], i) => (
-              <div key={`${head}-${i}`} className="rounded-xl border border-stone-200 p-4">
-                <p className="font-medium mb-1">{head as string}</p>
-                <ul className="list-disc pl-5 text-sm text-stone-700 space-y-1">
-                  {(list as string[]).map((li, k) => <li key={k}>{li}</li>)}
-                </ul>
+              ["Sala weselna", "Co zawiera cena? Do której godziny trwa zabawa? Czy jest agregat prądotwórczy? Jakie są opłaty za korkowe/tortowe?"],
+              ["Muzyka", "Ile trwają bloki muzyczne a ile przerwy? Czy zapewniacie własne oświetlenie? Jakie macie wymagania techniczne?"],
+              ["Fotograf", "Jaki jest czas oczekiwania na zdjęcia? Czy macie zapasowy sprzęt? Co w przypadku choroby w dniu ślubu?"],
+              ["Transport", "Czy kierowca zna trasę? Czy busy mają klimatyzację? Jak wygląda kwestia nadgodzin?"],
+            ].map(([head, text], i) => (
+              <div key={i} className="rounded-2xl bg-stone-50 p-5 border border-stone-100 hover:border-stone-200 transition-colors">
+                <h4 className="font-bold text-stone-800 mb-2">{head}</h4>
+                <p className="text-sm text-stone-600 leading-relaxed">{text}</p>
               </div>
             ))}
           </div>
         </section>
 
         <section id="dzien-slubu" className={baseCard}>
-          <h3 className="text-lg font-semibold">5. Dzień ślubu – minute plan</h3>
-          <ul className="grid sm:grid-cols-2 gap-3 text-sm text-stone-700 mt-3">
-            <li className="rounded-xl border border-stone-200 p-3"><strong>08:00–11:00</strong> Fryzura, makijaż, detale.</li>
-            <li className="rounded-xl border border-stone-200 p-3"><strong>11:00–13:00</strong> Ubieranie, first look, portrety.</li>
-            <li className="rounded-xl border border-stone-200 p-3"><strong>14:00</strong> Ceremonia (+15 min bufor).</li>
-            <li className="rounded-xl border border-stone-200 p-3"><strong>16:00</strong> Przyjazd, toast, obiad.</li>
-            <li className="rounded-xl border border-stone-200 p-3"><strong>18:00</strong> Pierwszy taniec, blok taneczny.</li>
-            <li className="rounded-xl border border-stone-200 p-3"><strong>20:00</strong> Tort, podziękowania, zabawa.</li>
-          </ul>
+          <div className="flex items-center gap-3 mb-6">
+             <div className="p-2.5 bg-cyan-100 text-cyan-600 rounded-xl"><Clock size={24} /></div>
+             <h3 className="text-xl font-bold text-stone-900">5. Ramowy plan dnia</h3>
+          </div>
+          
+          <div className="grid sm:grid-cols-3 gap-4">
+             <div className="p-4 rounded-2xl border border-stone-200 text-center">
+                <div className="text-2xl font-bold text-accent-500 mb-1">09:00</div>
+                <div className="text-sm font-medium text-stone-700">Przygotowania</div>
+                <div className="text-xs text-stone-500 mt-1">Fryzura, makijaż, śniadanie</div>
+             </div>
+             <div className="p-4 rounded-2xl border border-stone-200 text-center">
+                <div className="text-2xl font-bold text-accent-500 mb-1">13:00</div>
+                <div className="text-sm font-medium text-stone-700">First Look</div>
+                <div className="text-xs text-stone-500 mt-1">Błogosławieństwo, zdjęcia</div>
+             </div>
+             <div className="p-4 rounded-2xl border border-stone-200 text-center bg-brand-50">
+                <div className="text-2xl font-bold text-accent-600 mb-1">15:00</div>
+                <div className="text-sm font-medium text-stone-800">Ceremonia</div>
+                <div className="text-xs text-stone-600 mt-1">To ta chwila! ❤️</div>
+             </div>
+             <div className="p-4 rounded-2xl border border-stone-200 text-center">
+                <div className="text-2xl font-bold text-accent-500 mb-1">17:00</div>
+                <div className="text-sm font-medium text-stone-700">Przyjazd na salę</div>
+                <div className="text-xs text-stone-500 mt-1">Toast, życzenia, obiad</div>
+             </div>
+             <div className="p-4 rounded-2xl border border-stone-200 text-center">
+                <div className="text-2xl font-bold text-accent-500 mb-1">19:00</div>
+                <div className="text-sm font-medium text-stone-700">Pierwszy taniec</div>
+                <div className="text-xs text-stone-500 mt-1">Start zabawy</div>
+             </div>
+             <div className="p-4 rounded-2xl border border-stone-200 text-center">
+                <div className="text-2xl font-bold text-accent-500 mb-1">22:00</div>
+                <div className="text-sm font-medium text-stone-700">Tort & Oczepiny</div>
+                <div className="text-xs text-stone-500 mt-1">Atrakcje wieczoru</div>
+             </div>
+          </div>
         </section>
 
         <section id="plan-b" className={baseCard}>
-          <h3 className="text-lg font-semibold">6. Plan awaryjny</h3>
-          <div className="rounded-xl border-l-4 border-accent-500 bg-brand-100/60 p-4 text-sm text-stone-700">
-            <p className="font-medium mb-1">Ryzyka i zabezpieczenia</p>
-            <ul className="list-disc pl-5 space-y-1">
-              <li>Pogoda: namioty/parasole, alternatywa dla pleneru.</li>
-              <li>Opóźnienia: bufory 10–15 min między punktami.</li>
-              <li>Zdrowie: apteczka, zestaw do szycia, zapasowe buty.</li>
-              <li>Sprzęt: zapasowy mikrofon, przedłużacze, powerbanki.</li>
-            </ul>
+          <div className="flex items-center gap-3 mb-4">
+             <div className="p-2.5 bg-rose-100 text-rose-600 rounded-xl"><ShieldAlert size={24} /></div>
+             <h3 className="text-xl font-bold text-stone-900">6. Plan awaryjny (B)</h3>
           </div>
-        </section>
-
-        <section id="komunikacja" className={baseCard}>
-          <h3 className="text-lg font-semibold">7. Komunikacja i RSVP</h3>
-          <div className="grid sm:grid-cols-3 gap-4 mt-3 text-sm text-stone-700">
-            <div className="rounded-xl border border-stone-200 p-4">
-              <p className="font-medium mb-1">Save-the-date</p>
-              <p>Wysyłka 6–9 mies. przed.</p>
-            </div>
-            <div className="rounded-xl border border-stone-200 p-4">
-              <p className="font-medium mb-1">Zaproszenia</p>
-              <p>3–4 mies. przed • RSVP do T-60.</p>
-            </div>
-            <div className="rounded-xl border border-stone-200 p-4">
-              <p className="font-medium mb-1">Informacje dla gości</p>
-              <p>Mapa dojazdu, noclegi, dress code, prezenty.</p>
-            </div>
-          </div>
-        </section>
-
-        <section id="stylistyka" className={baseCard}>
-          <h3 className="text-lg font-semibold">8. Stylistyka i paleta</h3>
-          <p className="text-stone-600">Spójność w papeterii, kwiatach, oświetleniu i dekorze.</p>
-          <div className="mt-3 flex gap-3">
-            <span className="inline-block w-10 h-10 rounded-xl" style={{ background: "#ECE2D0" }} />
-            <span className="inline-block w-10 h-10 rounded-xl" style={{ background: "#CFA37A" }} />
-            <span className="inline-block w-10 h-10 rounded-xl bg-stone-700" />
-            <span className="inline-block w-10 h-10 rounded-xl bg-stone-200" />
+          <div className="bg-rose-50 border border-rose-100 rounded-2xl p-6">
+             <h4 className="font-bold text-rose-800 mb-2">Co może pójść nie tak?</h4>
+             <ul className="grid sm:grid-cols-2 gap-x-8 gap-y-2 list-disc pl-5 text-sm text-rose-900/80">
+                <li><strong>Pogoda:</strong> Przygotujcie parasole (nawet ładne, do zdjęć) i namiot w razie pleneru.</li>
+                <li><strong>Zdrowie:</strong> Apteczka z lekami przeciwbólowymi, plastry na odciski.</li>
+                <li><strong>Awaria prądu:</strong> Upewnij się, że sala/zespół ma agregat.</li>
+                <li><strong>Strój:</strong> Zapasowa koszula dla Pana Młodego, wygodne buty dla Panny Młodej.</li>
+             </ul>
           </div>
         </section>
 
         <section id="checklisty" className={baseCard}>
-          <h3 className="text-lg font-semibold">9. Checklisty do odhaczania</h3>
-          <div className="grid sm:grid-cols-2 gap-4 mt-3">
-            <div className="rounded-xl border border-stone-200 p-4">
-              <p className="font-medium mb-1">Przed ślubem (T-30)</p>
-              <ul className="list-disc pl-5 text-sm text-stone-700 space-y-1">
-                <li>RSVP i diety specjalne</li>
-                <li>Harmonogram u dostawców</li>
-                <li>Lista kontaktów alarmowych</li>
-                <li>Terminy płatności i zaliczek</li>
-              </ul>
-            </div>
-            <div className="rounded-xl border border-stone-200 p-4">
-              <p className="font-medium mb-1">Go-bag (dzień ślubu)</p>
-              <ul className="list-disc pl-5 text-sm text-stone-700 space-y-1">
-                <li>Ładowarka/powerbank</li>
-                <li>Igła, nitka, plastry</li>
-                <li>Bibułki, lakier, chusteczki</li>
-                <li>Woda i przekąska</li>
-              </ul>
-            </div>
+          <div className="flex items-center gap-3 mb-6">
+             <div className="p-2.5 bg-stone-100 text-stone-600 rounded-xl"><CheckSquare size={24} /></div>
+             <h3 className="text-xl font-bold text-stone-900">8. Niezbędnik w dniu ślubu (Go-bag)</h3>
           </div>
-          <div className="mt-4 flex gap-2">
-            <Link to="/zadania" className={btnPrimary}>Dodaj do Zadań</Link>
-            <Link to="/goscie" className={btnGhost}>Zarządzaj gośćmi</Link>
+          
+          <div className="bg-stone-50 rounded-2xl p-6 border border-stone-200">
+             <div className="grid sm:grid-cols-3 gap-4">
+                <div className="space-y-2">
+                   <div className="flex items-center gap-2 text-sm text-stone-700"><span className="w-4 h-4 rounded border bg-white flex items-center justify-center text-accent-500">✓</span> Dowody osobiste</div>
+                   <div className="flex items-center gap-2 text-sm text-stone-700"><span className="w-4 h-4 rounded border bg-white flex items-center justify-center text-accent-500">✓</span> Obrączki</div>
+                   <div className="flex items-center gap-2 text-sm text-stone-700"><span className="w-4 h-4 rounded border bg-white flex items-center justify-center text-accent-500">✓</span> Gotówka (koperty)</div>
+                </div>
+                <div className="space-y-2">
+                   <div className="flex items-center gap-2 text-sm text-stone-700"><span className="w-4 h-4 rounded border bg-white flex items-center justify-center text-accent-500">✓</span> Powerbank + kabel</div>
+                   <div className="flex items-center gap-2 text-sm text-stone-700"><span className="w-4 h-4 rounded border bg-white flex items-center justify-center text-accent-500">✓</span> Bibułki matujące</div>
+                   <div className="flex items-center gap-2 text-sm text-stone-700"><span className="w-4 h-4 rounded border bg-white flex items-center justify-center text-accent-500">✓</span> Lakier do włosów</div>
+                </div>
+                <div className="space-y-2">
+                   <div className="flex items-center gap-2 text-sm text-stone-700"><span className="w-4 h-4 rounded border bg-white flex items-center justify-center text-accent-500">✓</span> Igła i nitka</div>
+                   <div className="flex items-center gap-2 text-sm text-stone-700"><span className="w-4 h-4 rounded border bg-white flex items-center justify-center text-accent-500">✓</span> Agrafki</div>
+                   <div className="flex items-center gap-2 text-sm text-stone-700"><span className="w-4 h-4 rounded border bg-white flex items-center justify-center text-accent-500">✓</span> Woda i batonik</div>
+                </div>
+             </div>
+          </div>
+
+          <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
+             <Link to="/zadania" className={btnPrimary}>
+                Przejdź do moich Zadań
+             </Link>
+             <Link to="/goscie" className={btnGhost}>
+                Zarządzaj Listą Gości
+             </Link>
           </div>
         </section>
+
       </main>
     </div>
   );

@@ -16,11 +16,6 @@ import FAQPage from "@/pages/faq";
 import Contact from "@/pages/contact";
 import Privacy from "@/pages/privact";
 
-import PhotographerOffer from "@/pages/photographer_offer";
-import FloristOffer from "@/pages/florist_offer";
-import MusicOffer from "@/pages/music_offer";
-import TransportOffer from "@/pages/transport_offer";
-
 import Login from "@/auth/login";
 import Register from "@/auth/register";
 
@@ -42,11 +37,6 @@ export default function App() {
             <Route path="/zadania" element={<Tasks />} />
             <Route path="/harmonogram" element={<Timeline />} />
             <Route path="/przewodnik" element={<Guide />} />
-
-            <Route path="/fotograf/:id" element={<PhotographerOffer />} />
-            <Route path="/florysta/:id" element={<FloristOffer />} />
-            <Route path="/muzyka/:id" element={<MusicOffer />} />
-            <Route path="/transport/:id" element={<TransportOffer />} />
 
             <Route path="/faq" element={<FAQPage />} />
             <Route path="/kontakt" element={<Contact />} />

@@ -24,7 +24,14 @@ type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "nazwa";
 function MusicDetailsPage({ item, onBack, onBook }: { item: MusicItem, onBack: () => void, onBook: () => void }) {
   const [form, setForm] = useState({ date: "", hours: 10 });
 
-  const features = (item ?? ["Własne nagłośnienie", "Oświetlenie parkietu", "Prowadzenie zabaw", "Dojazd do 100km", "Biesiada przy stołach"]) as string[];
+  const features: string[] = [
+    "Własne nagłośnienie",
+    "Oświetlenie parkietu",
+    "Prowadzenie zabaw",
+    "Dojazd do 100km",
+    "Biesiada przy stołach",
+  ];
+
   const TypeIcon = item.type.toLowerCase().includes("dj") ? Headphones : Mic2;
   const rating = useMemo(() => (item.id.charCodeAt(0) % 5) / 10 + 4.5, [item.id]);
 

@@ -8,12 +8,23 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { 
   Star, MapPin, Filter, Sparkles, Info, Heart, X, 
-  Calendar, ArrowLeft, Flower2, Scissors, Car, Gift, Check 
+  Calendar, ArrowLeft, Flower2, Scissors, Car, Gift, Check, Loader2 
 } from "lucide-react";
+import api from "../lib/api";
 
-import { FLORISTS, type FloristItem } from "@/data/florists";
+export interface FloristItem {
+  id: string | number;
+  title: string;
+  companyName: string;
+  city: string;
+  priceFrom: number;
+  image: string;
+  desc: string;
+  rating?: number;
+  features?: string[];
+}
 
-//const CART_KEY = "wp_cart_florists";
+const CART_KEY = "wp_cart_florists";
 
 function numberFmt(n: number) {
   return new Intl.NumberFormat("pl-PL").format(n);
@@ -24,16 +35,20 @@ type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "ocena";
 function FloristDetailsPage({ item, onBack, onBook }: { item: FloristItem, onBack: () => void, onBook: () => void }) {
   const [form, setForm] = useState({ date: "", budget: item.priceFrom });
 
-  type WithFeatures = FloristItem & { features?: string[] };
-  const features = (item as WithFeatures).features ?? ["Dekoracja sali", "Bukiety ślubne", "Dekoracja auta", "Butonierki", "Brama weselna"];
+  const features = item.features && item.features.length > 0 
+    ? item.features 
+    : ["Dekoracja sali", "Bukiety ślubne", "Dekoracja auta", "Butonierki", "Brama weselna"];
 
   const getIcon = (feature: string) => {
-    if(feature.includes("auto") || feature.includes("Transport")) return <Car className="h-5 w-5"/>;
-    if(feature.includes("Bukiet")) return <Flower2 className="h-5 w-5"/>;
-    if(feature.includes("Dekoracja")) return <Scissors className="h-5 w-5"/>;
-    if(feature.includes("Prezent") || feature.includes("Box")) return <Gift className="h-5 w-5"/>;
+    const f = feature.toLowerCase();
+    if(f.includes("auto") || f.includes("transport")) return <Car className="h-5 w-5"/>;
+    if(f.includes("bukiet") || f.includes("kwiat")) return <Flower2 className="h-5 w-5"/>;
+    if(f.includes("dekoracja")) return <Scissors className="h-5 w-5"/>;
+    if(f.includes("prezent") || f.includes("box")) return <Gift className="h-5 w-5"/>;
     return <Check className="h-5 w-5"/>;
   }
+
+  const rating = item.rating || ((typeof item.id === 'number' ? item.id : item.title.length) % 5) / 10 + 4.5;
 
   return (
     <div className="min-h-screen bg-white animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -56,7 +71,7 @@ function FloristDetailsPage({ item, onBack, onBook }: { item: FloristItem, onBac
             <div className="flex items-center gap-4 text-lg font-medium opacity-90">
             <span className="flex items-center gap-1"><MapPin className="h-5 w-5" /> {item.city}</span>
             <span>•</span>
-            <span className="flex items-center gap-1"><Star className="h-5 w-5 fill-yellow-400 text-yellow-400" /> {((item as FloristItem & { rating?: number }).rating ?? 4.8)}</span>
+            <span className="flex items-center gap-1"><Star className="h-5 w-5 fill-yellow-400 text-yellow-400" /> {rating.toFixed(1)}</span>
           </div>
         </div>
       </div>
@@ -81,7 +96,7 @@ function FloristDetailsPage({ item, onBack, onBook }: { item: FloristItem, onBac
 
           <div>
             <h2 className="text-2xl font-semibold mb-4 text-stone-900">O firmie</h2>
-            <p className="text-lg text-stone-600 leading-relaxed">{item.desc}</p>
+            <p className="text-lg text-stone-600 leading-relaxed">{item.desc || "Brak opisu."}</p>
             <p className="mt-4 text-stone-600">
               Tworzymy dekoracje z pasją. Każdy bukiet i każda kompozycja to dla nas osobna historia.
               Dbamy o świeżość kwiatów i spójność kolorystyczną z motywem przewodnim Waszego wesela.
@@ -108,7 +123,7 @@ function FloristDetailsPage({ item, onBack, onBook }: { item: FloristItem, onBac
                  <span className="text-stone-500 text-sm"> / pakiet startowy</span>
                </div>
                <div className="flex items-center gap-1 text-sm font-medium">
-                 <Star className="h-4 w-4 fill-stone-900" /> {((item as FloristItem & { rating?: number }).rating ?? 4.8)}
+                 <Star className="h-4 w-4 fill-stone-900" /> {rating.toFixed(1)}
                </div>
             </div>
 
@@ -152,59 +167,6 @@ function FloristDetailsPage({ item, onBack, onBook }: { item: FloristItem, onBac
   )
 }
 
-function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }) {
-    if (!selectedItem) return null;
-    return (
-        <Sheet open={!!selectedItem} onOpenChange={(o)=> !o && onClose()}>
-        <SheetContent side="right" className="w-full sm:max-w-md border-l-0 shadow-2xl p-0 sm:rounded-l-[2rem] overflow-hidden flex flex-col">
-           <div className="relative h-48 shrink-0">
-               <img src={selectedItem.image} className="h-full w-full object-cover" />
-               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-               <div className="absolute bottom-4 left-6 right-6 text-white">
-                   <h3 className="text-xl font-bold">{selectedItem.title}</h3>
-                   <p className="text-sm text-white/80 flex items-center gap-1"><Flower2 className="h-3.5 w-3.5"/> {selectedItem.companyName}</p>
-               </div>
-               <button onClick={onClose} className="absolute top-4 right-4 rounded-full bg-black/20 p-2 text-white backdrop-blur-md hover:bg-black/40"><X className="h-5 w-5"/></button>
-           </div>
-           
-           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-               <div>
-                   <h4 className="text-lg font-semibold mb-4 flex items-center gap-2"><Calendar className="h-5 w-5 text-rose-500"/> Zapytanie o dostępność</h4>
-                   <div className="space-y-4">
-                       <div className="space-y-1.5">
-                           <label className="text-sm font-medium text-stone-700">Planowana data</label>
-                           <Input type="date" className="h-12 rounded-xl bg-stone-50 border-stone-200" value={bookingForm.date} onChange={(e)=>setBookingForm({...bookingForm, date: e.target.value})} />
-                       </div>
-                        <div className="space-y-1.5">
-                           <label className="text-sm font-medium text-stone-700">Wiadomość / Wymagania</label>
-                           <textarea 
-                            className="w-full rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm min-h-[100px] focus:outline-none focus:ring-2 focus:ring-stone-900"
-                            placeholder="Opisz styl wesela, np. boho, glamour..."
-                            value={bookingForm.notes}
-                            onChange={(e)=>setBookingForm({...bookingForm, notes: e.target.value})}
-                           />
-                       </div>
-                   </div>
-               </div>
-
-               <div className="rounded-2xl bg-stone-900 p-5 text-white">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="text-stone-400 text-sm">Cena startowa</span>
-                        <Info className="h-4 w-4 text-stone-500" />
-                    </div>
-                    <div className="text-3xl font-bold">{numberFmt(selectedItem.priceFrom)} zł</div>
-                    <div className="text-sm text-stone-500 mt-1">Ostateczna wycena po konsultacji.</div>
-               </div>
-           </div>
-
-           <SheetFooter className="p-6 pt-2 bg-white border-t border-stone-100">
-               <Button size="lg" className="w-full rounded-xl bg-rose-600 hover:bg-rose-700 h-14 text-lg shadow-lg shadow-rose-900/20">Wyślij zapytanie</Button>
-           </SheetFooter>
-        </SheetContent>
-      </Sheet>
-    )
-}
-
 export default function FloristPro() {
   const [q, setQ] = useState("");
   const [city, setCity] = useState("Wszystkie");
@@ -212,8 +174,46 @@ export default function FloristPro() {
   const [sort, setSort] = useState<SortKey>("rekomendowane");
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [viewDetailsId, setViewDetailsId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | number | null>(null);
+  const [viewDetailsId, setViewDetailsId] = useState<string | number | null>(null);
+
+  const [florists, setFlorists] = useState<FloristItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFlorists = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get("/florists/");
+        console.log("Dane florystów z API:", response.data);
+
+        const mapped: FloristItem[] = response.data.map((f: any) => {
+            const pseudoId = typeof f.id === 'number' ? f.id : 1;
+            const generatedRating = 4.5 + ((pseudoId * 3) % 5) / 10;
+
+            return {
+                id: f.id,
+                title: f.title || f.companyname || "Pracownia Florystyczna",
+                companyName: f.companyname || f.title || "Nieznana Firma",
+                city: f.city || "Cała Polska",
+                priceFrom: Number(f.pricefrom) || Number(f.price) || 2000,
+                image: f.imageurl || "https://images.unsplash.com/photo-1526047932273-341f2a7631f9?q=80&w=1200&auto=format&fit=crop",
+                desc: f.description || "Tworzymy wymarzone dekoracje na Twój ślub.",
+                rating: generatedRating,
+                features: []
+            };
+        });
+
+        setFlorists(mapped);
+      } catch (error) {
+        console.error("Błąd pobierania florystów:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFlorists();
+  }, []);
 
   const [shortlist, setShortlist] = useState<string[]>(() => {
     try {
@@ -225,19 +225,19 @@ export default function FloristPro() {
   });
 
   const [minPrice, maxPrice] = useMemo(() => {
-    if (FLORISTS.length === 0) return [0, 10000];
-    const prices = FLORISTS.map(f => f.priceFrom);
+    if (florists.length === 0) return [0, 10000];
+    const prices = florists.map(f => f.priceFrom);
     return [Math.min(...prices), Math.max(...prices)];
-  }, []);
+  }, [florists]);
 
   useEffect(() => {
-      setPriceRange([minPrice, maxPrice]);
-  }, [minPrice, maxPrice]);
+      if (florists.length > 0) setPriceRange([minPrice, maxPrice]);
+  }, [minPrice, maxPrice, florists.length]);
 
-  const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(FLORISTS.map(f => f.city)))], []);
+  const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(florists.map(f => f.city)))], [florists]);
 
   const filtered = useMemo(() => {
-    let items = FLORISTS.filter((f) =>
+    let items = florists.filter((f) =>
       (q
         ? f.title.toLowerCase().includes(q.toLowerCase()) || 
           f.companyName.toLowerCase().includes(q.toLowerCase()) ||
@@ -259,19 +259,20 @@ export default function FloristPro() {
         break; 
     }
     return items;
-  }, [q, city, priceRange, sort]);
+  }, [florists, q, city, priceRange, sort]);
 
   useEffect(() => {
     localStorage.setItem("wp_florists_shortlist", JSON.stringify(shortlist));
   }, [shortlist]);
 
-  const toggleShortlist = (e: React.MouseEvent, id: string) => {
+  const toggleShortlist = (e: React.MouseEvent, id: string | number) => {
     e.stopPropagation();
-    setShortlist((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+    const idStr = String(id);
+    setShortlist((s) => (s.includes(idStr) ? s.filter((x) => x !== idStr) : [...s, idStr]));
   };
 
-  const selectedItem = useMemo(() => FLORISTS.find(f => f.id === selectedId), [selectedId]);
-  const detailsItem = useMemo(() => FLORISTS.find(f => f.id === viewDetailsId), [viewDetailsId]);
+  const selectedItem = useMemo(() => florists.find(f => f.id === selectedId), [selectedId, florists]);
+  const detailsItem = useMemo(() => florists.find(f => f.id === viewDetailsId), [viewDetailsId, florists]);
 
   const [bookingForm, setBookingForm] = useState({ date: "", notes: "" });
 
@@ -283,7 +284,7 @@ export default function FloristPro() {
                 onBack={() => setViewDetailsId(null)} 
                 onBook={() => setSelectedId(detailsItem.id)}
             />
-            {selectedId && <BookingSheet selectedItem={FLORISTS.find(f => f.id === selectedId)} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
+            {selectedId && <BookingSheet selectedItem={selectedItem} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
           </>
       )
   }
@@ -306,14 +307,8 @@ export default function FloristPro() {
           </div>
 
           <div className="flex gap-4">
-             <div className="flex flex-col items-center justify-center rounded-2xl bg-white px-6 py-3 shadow-sm ring-1 ring-black/5">
-               <span className="text-2xl font-bold text-stone-900">{FLORISTS.length}</span>
-               <span className="text-xs font-medium text-stone-400 uppercase tracking-wider">Ofert</span>
-             </div>
-             <div className="flex flex-col items-center justify-center rounded-2xl bg-white px-6 py-3 shadow-sm ring-1 ring-black/5">
-               <span className="text-2xl font-bold text-stone-900">{numberFmt(minPrice)}</span>
-               <span className="text-xs font-medium text-stone-400 uppercase tracking-wider">Od zł</span>
-             </div>
+             <StatCard label="Ofert" value={String(florists.length)} />
+             <StatCard label="Od zł" value={florists.length > 0 ? numberFmt(minPrice) : "-"} />
           </div>
         </header>
 
@@ -414,10 +409,16 @@ export default function FloristPro() {
           </aside>
 
           <section className="lg:col-span-9">
-             {filtered.length === 0 ? (
+             {loading ? (
+                 <div className="flex h-64 flex-col items-center justify-center">
+                     <Loader2 className="h-10 w-10 animate-spin text-green-500 mb-4" />
+                     <p className="text-stone-500">Szukam najpiękniejszych kwiatów...</p>
+                 </div>
+             ) : filtered.length === 0 ? (
                <div className="flex h-64 flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white text-center">
                   <div className="rounded-full bg-stone-100 p-4"><Filter className="h-6 w-6 text-stone-400" /></div>
                   <h3 className="mt-4 text-lg font-semibold text-stone-900">Brak wyników</h3>
+                  <p className="text-stone-500">Zmień kryteria wyszukiwania.</p>
                </div>
              ) : (
                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
@@ -428,8 +429,8 @@ export default function FloristPro() {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-60" />
                         
                         <div className="absolute top-3 right-3 z-10">
-                          <button onClick={(e)=>toggleShortlist(e, item.id)} className={`flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-all ${shortlist.includes(item.id) ? "bg-rose-500 text-white" : "bg-white/30 text-white hover:bg-white/50"}`}>
-                            <Heart className={`h-5 w-5 ${shortlist.includes(item.id) ? "fill-current" : ""}`} />
+                          <button onClick={(e)=>toggleShortlist(e, item.id)} className={`flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-all ${shortlist.includes(String(item.id)) ? "bg-rose-500 text-white" : "bg-white/30 text-white hover:bg-white/50"}`}>
+                            <Heart className={`h-5 w-5 ${shortlist.includes(String(item.id)) ? "fill-current" : ""}`} />
                           </button>
                         </div>
                         
@@ -452,8 +453,8 @@ export default function FloristPro() {
                       </CardContent>
 
                       <CardFooter className="p-5 pt-0 gap-3">
-                         <Button onClick={() => setViewDetailsId(item.id)} variant="outline" className="flex-1 rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50">Szczegóły</Button>
-                         <Button onClick={() => setSelectedId(item.id)} className="flex-1 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg shadow-stone-900/20">Zapytaj</Button>
+                          <Button onClick={() => setViewDetailsId(item.id)} variant="outline" className="flex-1 rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50">Szczegóły</Button>
+                          <Button onClick={() => setSelectedId(item.id)} className="flex-1 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg shadow-stone-900/20">Zapytaj</Button>
                       </CardFooter>
                    </Card>
                  ))}
@@ -466,4 +467,85 @@ export default function FloristPro() {
       {selectedId && <BookingSheet selectedItem={selectedItem} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
     </div>
   );
+}
+
+function StatCard({ label, value }: { label: string, value: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl bg-white px-6 py-3 shadow-sm ring-1 ring-black/5">
+       <span className="text-2xl font-bold text-stone-900">{value}</span>
+       <span className="text-xs font-medium text-stone-400 uppercase tracking-wider">{label}</span>
+    </div>
+  )
+}
+
+function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }: any) {
+    if (!selectedItem) return null;
+    
+    const handleAddToCart = () => {
+        try {
+            const raw = localStorage.getItem(CART_KEY);
+            const prev: FloristItem[] = raw ? JSON.parse(raw) : [];
+            const exists = prev.some((p) => String(p.id) === String(selectedItem.id));
+            if (!exists) {
+                const next = [...prev, selectedItem];
+                localStorage.setItem(CART_KEY, JSON.stringify(next));
+            }
+        } catch (e) { console.error(e) }
+        onClose();
+    }
+
+    return (
+        <Sheet open={!!selectedItem} onOpenChange={(o)=> !o && onClose()}>
+        <SheetContent side="right" className="w-full sm:max-w-md border-l-0 shadow-2xl p-0 sm:rounded-l-[2rem] overflow-hidden flex flex-col">
+           <div className="relative h-48 shrink-0">
+               <img src={selectedItem.image} className="h-full w-full object-cover" />
+               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+               <div className="absolute bottom-4 left-6 right-6 text-white">
+                   <h3 className="text-xl font-bold">{selectedItem.title}</h3>
+                   <p className="text-sm text-white/80 flex items-center gap-1"><Flower2 className="h-3.5 w-3.5"/> {selectedItem.companyName}</p>
+               </div>
+               <button onClick={onClose} className="absolute top-4 right-4 rounded-full bg-black/20 p-2 text-white backdrop-blur-md hover:bg-black/40"><X className="h-5 w-5"/></button>
+           </div>
+           
+           <div className="flex-1 overflow-y-auto p-6 space-y-6">
+               <div>
+                   <h4 className="text-lg font-semibold mb-4 flex items-center gap-2"><Calendar className="h-5 w-5 text-rose-500"/> Zapytanie o dostępność</h4>
+                   <div className="space-y-4">
+                       <div className="space-y-1.5">
+                           <label className="text-sm font-medium text-stone-700">Planowana data</label>
+                           <Input type="date" className="h-12 rounded-xl bg-stone-50 border-stone-200" value={bookingForm.date} onChange={(e)=>setBookingForm({...bookingForm, date: e.target.value})} />
+                       </div>
+                        <div className="space-y-1.5">
+                           <label className="text-sm font-medium text-stone-700">Wiadomość / Wymagania</label>
+                           <textarea 
+                            className="w-full rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm min-h-[100px] focus:outline-none focus:ring-2 focus:ring-stone-900"
+                            placeholder="Opisz styl wesela, np. boho, glamour..."
+                            value={bookingForm.notes}
+                            onChange={(e)=>setBookingForm({...bookingForm, notes: e.target.value})}
+                           />
+                       </div>
+                   </div>
+               </div>
+
+               <div className="rounded-2xl bg-stone-900 p-5 text-white">
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-stone-400 text-sm">Cena startowa</span>
+                        <Info className="h-4 w-4 text-stone-500" />
+                    </div>
+                    <div className="text-3xl font-bold">{numberFmt(selectedItem.priceFrom)} zł</div>
+                    <div className="text-sm text-stone-500 mt-1">Ostateczna wycena po konsultacji.</div>
+               </div>
+           </div>
+
+           <SheetFooter className="p-6 pt-2 bg-white border-t border-stone-100 grid grid-cols-2 gap-3">
+               <Button size="lg" variant="outline" className="w-full rounded-xl h-14" onClick={handleAddToCart}>
+                   <Heart className="h-4 w-4 mr-2" /> Dodaj
+               </Button>
+               <Button size="lg" className="w-full rounded-xl bg-rose-600 hover:bg-rose-700 h-14 text-lg shadow-lg shadow-rose-900/20">
+                   Wyślij
+               </Button>
+           </SheetFooter>
+        </SheetContent>
+        </Sheet>
+    )
 }

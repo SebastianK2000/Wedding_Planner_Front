@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Search, Pencil, Trash2, MapPin, Flower2, Store } from "lucide-react";
-import { FLORISTS } from "@/data/florists";
+// import { FLORISTS } from "@/data/florists";
 import { Button } from "@/components/ui/button";
 
 export default function ManageFlorists() {

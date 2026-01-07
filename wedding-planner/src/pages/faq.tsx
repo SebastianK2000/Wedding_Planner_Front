@@ -1,142 +1,77 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink } from "react-router-dom";
-import { Check, ThumbsUp, ThumbsDown, Search, ChevronDown, HelpCircle, MessageCircle } from "lucide-react";
+import { Check, ThumbsUp, ThumbsDown, Search, ChevronDown, HelpCircle, MessageCircle, Loader2 } from "lucide-react";
+import api from "../lib/api";
+
+type FaqCategoryItem = {
+  id: number;
+  name: string;
+};
 
 type FaqItem = {
-  id: string;
-  cat: FaqCategory;
+  id: number;
+  question: string;
+  answer: string;
+  categoryid?: number;
+};
+
+type FaqViewItem = {
+  id: string; 
+  catName: string;
   q: string;
   a: string;
 };
-
-type FaqCategory =
-  | "Ogólne"
-  | "Rezerwacje"
-  | "Budżet i płatności"
-  | "Goście / RSVP"
-  | "Transport"
-  | "Prywatność i techniczne";
-
-const CATS: FaqCategory[] = [
-  "Ogólne",
-  "Rezerwacje",
-  "Budżet i płatności",
-  "Goście / RSVP",
-  "Transport",
-  "Prywatność i techniczne",
-];
-
-const FAQ: FaqItem[] = [
-  {
-    id: "f1",
-    cat: "Ogólne",
-    q: "Czym jest Wedding Planner i dla kogo jest przeznaczony?",
-    a: "To aplikacja do planowania wesela — w jednym miejscu ogarniasz salę, muzykę, fotografa, florystę, transport, gości, budżet i zadania. Sprawdzi się zarówno przy małych przyjęciach, jak i dużych weselach z wieloma dostawcami.",
-  },
-  {
-    id: "f2",
-    cat: "Ogólne",
-    q: "Czy muszę tworzyć konto, aby korzystać?",
-    a: "Na start nie — część danych zapisujemy lokalnie w Twojej przeglądarce (localStorage). Gdy dodamy logowanie, będziesz mógł/mogła przenieść dane na konto jednym kliknięciem.",
-  },
-  {
-    id: "f3",
-    cat: "Ogólne",
-    q: "Czy mogę współdzielić plan z narzeczonym/ą lub rodziną?",
-    a: "Tak, nasz plan zakłada tryb współpracy. W obecnej wersji możesz ręcznie eksportować CSV (Budżet, Goście) i udostępniać. W wersji z kontem umożliwimy współdzielenie w czasie rzeczywistym.",
-  },
-  {
-    id: "f4",
-    cat: "Rezerwacje",
-    q: "Jak dodać ofertę fotografa/florysty/muzyki do planu?",
-    a: "Wejdź w odpowiednią kartę (Fotograf/Florysta/Muzyka) i kliknij „Dodaj”. Pozycja zapisze się w planie (lokalnie). W podglądzie oferty masz też „Idź do oferty” oraz modal ze szczegółami.",
-  },
-  {
-    id: "f5",
-    cat: "Rezerwacje",
-    q: "Czy mogę zapisywać terminy?",
-    a: "Tak — w ofertach przewidzieliśmy pola terminów, a dodatkowo w Zadaniach możesz ustawiać konkretne daty i priorytety. Planuj etapy rezerwacji i oznaczaj statusy.",
-  },
-  {
-    id: "f6",
-    cat: "Budżet i płatności",
-    q: "Jak działa moduł budżetu?",
-    a: "Dodajesz pozycje z kategorią, planowaną oraz rzeczywistą kwotą, notatkami i statusem opłacenia. Masz sumy (Plan/Rzeczywiste/Pozostało), filtry, eksport CSV i zapisywanie w przeglądarce.",
-  },
-  {
-    id: "f7",
-    cat: "Budżet i płatności",
-    q: "Czy aplikacja obsługuje płatności online?",
-    a: "Nie — aplikacja nie przetwarza płatności. Budżet to planer wydatków; realne opłaty wykonujesz bezpośrednio u dostawców.",
-  },
-  {
-    id: "f8",
-    cat: "Goście / RSVP",
-    q: "Jak zarządzać RSVP i stolikami?",
-    a: "W Gościach masz 60 przykładowych rekordów, filtry statusów (Potwierdzone/Oczekuje/Odmowa), szybkie zmiany statusu, przypisania do stolików i eksport CSV.",
-  },
-  {
-    id: "f9",
-    cat: "Goście / RSVP",
-    q: "Czy mogę dodać informacje o diecie i +1?",
-    a: "Tak. Rekord gościa zawiera dietę, pole +1 oraz notatki (np. alergie, preferencje).",
-  },
-  {
-    id: "f10",
-    cat: "Transport",
-    q: "Jak zaplanować logistykę dojazdu i busy?",
-    a: "W Transporcie masz planer pojemności (sugeruje miks busów dla liczby gości), katalog przewoźników oraz podstronę oferty z prostym formularzem rezerwacji (mock).",
-  },
-  {
-    id: "f11",
-    cat: "Transport",
-    q: "Czy rezerwacja transportu w aplikacji jest wiążąca?",
-    a: "Nie — formularz ma charakter roboczy. Finalną rezerwację ustalasz z przewoźnikiem (telefon, e-mail, umowa).",
-  },
-  {
-    id: "f12",
-    cat: "Prywatność i techniczne",
-    q: "Gdzie przechowywane są moje dane?",
-    a: "Lokalnie w przeglądarce (localStorage). To oznacza, że pozostają na Twoim urządzeniu i nie są wysyłane na serwer. Pamiętaj: czyszczenie danych przeglądarki usunie zapis.",
-  },
-  {
-    id: "f13",
-    cat: "Prywatność i techniczne",
-    q: "Czy mogę wyeksportować dane?",
-    a: "Tak — sekcje Budżet/Goście/Transport mają eksport CSV. Dzięki temu łatwo przeniesiesz informacje do arkuszy czy podzielisz się z rodziną.",
-  },
-  {
-    id: "f14",
-    cat: "Ogólne",
-    q: "Jak zgłosić błąd lub propozycję funkcji?",
-    a: "Napisz do nas przez zakładkę Kontakt lub wyślij e-mail: kontakt@weddingplanner.app. Każdy feedback jest mile widziany!",
-  },
-  {
-    id: "f15",
-    cat: "Rezerwacje",
-    q: "Czy mogę dodawać własnych dostawców?",
-    a: "Tak — w każdej karcie możesz tworzyć własne wpisy (np. notatki, zadania, budżet). W kolejnych wersjach dodamy katalogi użytkownika.",
-  },
-  {
-    id: "f16",
-    cat: "Budżet i płatności",
-    q: "Jak oznaczyć zaliczkę i rozliczenie końcowe?",
-    a: "W Budżecie wykorzystaj status „opłacone” oraz notatki z datą i formą płatności. Możesz też rozbić pozycję na zaliczkę i resztę (duplikuj + edytuj).",
-  },
-  {
-    id: "f17",
-    cat: "Prywatność i techniczne",
-    q: "Czy aplikacja działa offline?",
-    a: "Tak — po wczytaniu strony możesz pracować bez połączenia. Dane zapisują się lokalnie i zsynchronizują, gdy dodamy logowanie.",
-  },
-];
 
 const VOTES_KEY = "wp_faq_votes";
 
 export default function FAQPage() {
   const [query, setQuery] = useState("");
-  const [cat, setCat] = useState<FaqCategory | "Wszystkie">("Wszystkie");
-  const [open, setOpen] = useState<string | null>(FAQ[0].id);
+  const [activeCat, setActiveCat] = useState<string>("Wszystkie");
+  const [open, setOpen] = useState<string | null>(null);
+  
+  const [categories, setCategories] = useState<FaqCategoryItem[]>([]);
+  const [questions, setQuestions] = useState<FaqItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        const [catsRes, itemsRes] = await Promise.all([
+          api.get("/faq-categories/"),
+          api.get("/faq-items/")
+        ]);
+
+        console.log("Kategorie FAQ:", catsRes.data);
+        console.log("Pytania FAQ:", itemsRes.data);
+
+        setCategories(catsRes.data);
+        setQuestions(itemsRes.data);
+        
+      } catch (error) {
+        console.error("Błąd pobierania FAQ:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const faqList: FaqViewItem[] = useMemo(() => {
+    return questions.map(q => {
+      const cat = categories.find(c => c.id === q.categoryid);
+      return {
+        id: String(q.id),
+        catName: cat ? cat.name : "Inne",
+        q: q.question,
+        a: q.answer
+      };
+    });
+  }, [questions, categories]);
+
+  const categoryNames = useMemo(() => ["Wszystkie", ...categories.map(c => c.name)], [categories]);
+
   const [votes, setVotes] = useState<Record<string, "up" | "down">>(() => {
     try {
       const raw = localStorage.getItem(VOTES_KEY);
@@ -151,16 +86,16 @@ export default function FAQPage() {
   }, [votes]);
 
   const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return FAQ.filter((i) => {
-      const okCat = cat === "Wszystkie" ? true : i.cat === cat;
+    const qLower = query.trim().toLowerCase();
+    return faqList.filter((i) => {
+      const okCat = activeCat === "Wszystkie" ? true : i.catName === activeCat;
       const okQ =
-        q.length === 0 ||
-        i.q.toLowerCase().includes(q) ||
-        i.a.toLowerCase().includes(q);
+        qLower.length === 0 ||
+        i.q.toLowerCase().includes(qLower) ||
+        i.a.toLowerCase().includes(qLower);
       return okCat && okQ;
     });
-  }, [query, cat]);
+  }, [query, activeCat, faqList]);
 
   const jsonLd = useMemo(() => {
     const items = filtered.slice(0, 30).map((i) => ({
@@ -180,6 +115,15 @@ export default function FAQPage() {
 
   const chip = "px-4 py-2 rounded-full border text-sm font-medium border-stone-200 bg-white text-stone-600 hover:bg-stone-50 hover:border-stone-300 transition-all whitespace-nowrap";
   const chipActive = "px-4 py-2 rounded-full border text-sm font-medium border-stone-800 bg-stone-800 text-white shadow-md transition-all whitespace-nowrap";
+
+  if (loading) {
+      return (
+        <div className="min-h-screen bg-stone-50/50 flex flex-col items-center justify-center p-8">
+            <Loader2 className="h-10 w-10 animate-spin text-rose-500 mb-4" />
+            <p className="text-stone-500 font-medium">Ładowanie bazy wiedzy...</p>
+        </div>
+      )
+  }
 
   return (
     <div className="min-h-screen bg-stone-50/50 font-sans animate-in fade-in slide-in-from-bottom-4 duration-500 p-4 md:p-8">
@@ -208,11 +152,8 @@ export default function FAQPage() {
         </div>
 
         <div className="flex flex-wrap justify-center gap-2">
-            <button onClick={() => setCat("Wszystkie")} className={cat === "Wszystkie" ? chipActive : chip}>
-              Wszystkie
-            </button>
-            {CATS.map((c) => (
-              <button key={c} onClick={() => setCat(c)} className={cat === c ? chipActive : chip}>
+            {categoryNames.map((c) => (
+              <button key={c} onClick={() => setActiveCat(c)} className={activeCat === c ? chipActive : chip}>
                 {c}
               </button>
             ))}
@@ -245,7 +186,7 @@ export default function FAQPage() {
                           <div className={`text-base md:text-lg font-semibold transition-colors ${isOpen ? "text-rose-900" : "text-stone-800 group-hover:text-stone-900"}`}>
                             {item.q}
                           </div>
-                          <div className="text-xs font-medium text-stone-400 mt-1 uppercase tracking-wide">{item.cat}</div>
+                          <div className="text-xs font-medium text-stone-400 mt-1 uppercase tracking-wide">{item.catName}</div>
                         </div>
                         <span className={`shrink-0 mt-1 transition-transform duration-300 ${isOpen ? "rotate-180 text-rose-500" : "text-stone-400"}`}>
                           <ChevronDown size={24} />

@@ -3,117 +3,145 @@ import {
   Check, 
   ChevronDown, 
   ChevronRight, 
-  RefreshCw, 
   Search, 
   Plus, 
   Clock, 
   Flag,
   X,
-  Calendar
+  Calendar,
+  Loader2
 } from "lucide-react";
-
-interface Task {
-  id: string;
-  title: string;
-  details: string;
-  status: "todo" | "done";
-}
+import api from "../lib/api";
 
 interface TimelineGroup {
+  id: number;
+  timelabel: string;
+}
+
+interface TimelineEvent {
+  id: number;
+  groupid: number;
+  title: string;
+  details: string;
+  iscompleted: boolean;
+}
+
+interface TimelineViewItem {
   id: string;
   timeLabel: string;
   tasks: Task[];
 }
 
-interface TaskFormState extends Task {
-  groupId: string;
+interface Task {
+  id: number;
+  title: string;
+  details: string;
+  status: "todo" | "done";
 }
 
-const initialTimelineData: TimelineGroup[] = [
-  {
-    id: "group-1",
-    timeLabel: "12+ miesięcy przed",
-    tasks: [
-      { id: "t-1-1", title: "Ustal budżet ślubny", details: "Określ maksymalną kwotę na całe wydarzenie.", status: "todo" },
-      { id: "t-1-2", title: "Stwórz wstępną listę gości", details: "Wielkość wesela wpływa na salę i budżet.", status: "todo" },
-      { id: "t-1-3", title: "Wybierz datę i miejsce", details: "Zarezerwuj kościół/USC i salę weselną.", status: "todo" },
-    ],
-  },
-  {
-    id: "group-2",
-    timeLabel: "9–12 miesięcy przed",
-    tasks: [
-      { id: "t-2-1", title: "Zarezerwuj kluczowych usługodawców", details: "Fotograf, kamerzysta, zespół/DJ.", status: "todo" },
-      { id: "t-2-2", title: "Wybierz świadków", details: "Poproście o pełnienie funkcji.", status: "todo" },
-      { id: "t-2-3", title: "Rozpocznij poszukiwania sukni", details: "Umów pierwsze przymiarki.", status: "todo" },
-    ],
-  },
-  {
-    id: "group-3",
-    timeLabel: "6–9 miesięcy przed",
-    tasks: [
-      { id: "t-3-1", title: "Podpisz umowę z florystą", details: "Ustal styl dekoracji i kolorystykę.", status: "todo" },
-      { id: "t-3-2", title: "Zamów zaproszenia", details: "Wybierz projekt i treść.", status: "todo" },
-      { id: "t-3-3", title: "Zarezerwuj transport", details: "Auto dla pary i busy dla gości.", status: "todo" },
-    ],
-  },
-  {
-    id: "group-4",
-    timeLabel: "3–6 miesięcy przed",
-    tasks: [
-      { id: "t-4-1", title: "Wyślij zaproszenia", details: "Daj gościom czas na odpowiedź.", status: "todo" },
-      { id: "t-4-2", title: "Kup obrączki", details: "Z grawerem i rozmiarami.", status: "todo" },
-      { id: "t-4-3", title: "Ustal menu", details: "Degustacja + tort.", status: "todo" },
-    ],
-  },
-  {
-    id: "group-5",
-    timeLabel: "1–3 miesiące przed",
-    tasks: [
-      { id: "t-5-1", title: "Wieczory panieński/kawalerski", details: "Z pomocą świadków.", status: "todo" },
-      { id: "t-5-2", title: "Ostateczne przymiarki", details: "Suknia/garnitur i dodatki.", status: "todo" },
-      { id: "t-5-3", title: "Plan usadzenia gości", details: "Stoliki i tablica gości.", status: "todo" },
-    ],
-  },
-  {
-    id: "group-6",
-    timeLabel: "Dzień ślubu",
-    tasks: [
-      { id: "t-6-1", title: "Odbierz bukiet i kwiaty", details: "Sprawdź dostawę na czas.", status: "todo" },
-      { id: "t-6-2", title: "Oddychaj i ciesz się chwilą", details: "To Wasz dzień ❤️", status: "todo" },
-    ],
-  },
-];
-
-const LS_KEY = "wp_timeline_v1";
-const uid = () => Math.random().toString(36).slice(2, 9);
+interface TaskFormState {
+  id?: number;
+  groupId: number;
+  title: string;
+  details: string;
+  status: "todo" | "done";
+}
 
 export default function Timeline() {
-  const [timeline, setTimeline] = useState<TimelineGroup[]>(() => {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      return raw ? (JSON.parse(raw) as TimelineGroup[]) : initialTimelineData;
-    } catch {
-      return initialTimelineData;
-    }
-  });
+  const [groups, setGroups] = useState<TimelineGroup[]>([]);
+  const [events, setEvents] = useState<TimelineEvent[]>([]);
+  const [loading, setLoading] = useState(true);
   
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<TaskFormState | null>(null);
 
-  useEffect(() => {
-    localStorage.setItem(LS_KEY, JSON.stringify(timeline));
-  }, [timeline]);
+  const fetchData = async () => {
+    try {
+      const [groupsRes, eventsRes] = await Promise.all([
+        api.get("/timeline-groups/"),
+        api.get("/timeline/")
+      ]);
+      setGroups(groupsRes.data);
+      setEvents(eventsRes.data);
+    } catch (error) {
+      console.error("Błąd pobierania harmonogramu:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const toggleTask = (groupId: string, taskId: string) => {
-    setTimeline((curr) =>
-      curr.map((g) =>
-        g.id === groupId
-          ? { ...g, tasks: g.tasks.map((t) => (t.id === taskId ? { ...t, status: t.status === "todo" ? "done" : "todo" } : t)) }
-          : g
-      )
-    );
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const timeline: TimelineViewItem[] = useMemo(() => {
+    return groups.map(g => {
+      const groupTasks = events
+        .filter(e => e.groupid === g.id)
+        .map(e => ({
+          id: e.id,
+          title: e.title,
+          details: e.details || "",
+          status: e.iscompleted ? ("done" as const) : ("todo" as const)
+        }));
+
+      return {
+        id: String(g.id),
+        timeLabel: g.timelabel,
+        tasks: groupTasks
+      };
+    });
+  }, [groups, events]);
+
+
+  const toggleTask = async (taskId: number, currentStatus: "todo" | "done") => {
+    const newStatus = currentStatus === "todo";
+    setEvents(prev => prev.map(e => e.id === taskId ? { ...e, iscompleted: newStatus } : e));
+
+    try {
+      await api.patch(`/timeline/${taskId}/`, { iscompleted: newStatus });
+    } catch (error) {
+      console.error("Błąd aktualizacji statusu:", error);
+      fetchData();
+    }
+  };
+
+  const saveTask = async (form: TaskFormState) => {
+    try {
+      const payload = {
+        groupid: form.groupId,
+        title: form.title,
+        details: form.details,
+        iscompleted: form.status === "done"
+      };
+
+      if (form.id) {
+        await api.put(`/timeline/${form.id}/`, payload);
+      } else {
+        await api.post("/timeline/", payload);
+      }
+      
+      setEditing(null);
+      fetchData();
+    } catch (error) {
+      console.error("Błąd zapisu zadania:", error);
+      alert("Wystąpił błąd podczas zapisu.");
+    }
+  };
+
+  const removeTask = async (taskId: number) => {
+    if(!confirm("Usunąć to zadanie?")) return;
+    
+    setEvents(prev => prev.filter(e => e.id !== taskId));
+    setEditing(null);
+
+    try {
+      await api.delete(`/timeline/${taskId}/`);
+    } catch (error) {
+      console.error("Błąd usuwania:", error);
+      fetchData();
+    }
   };
 
   const [totalTasks, completedTasks] = useMemo(() => {
@@ -143,72 +171,38 @@ export default function Timeline() {
   const collapseAll = () =>
     setCollapsed(Object.fromEntries(timeline.map((g) => [g.id, true])));
 
-  const resetAll = () => {
-    if(!confirm("Czy na pewno chcesz przywrócić domyślny harmonogram? Wszystkie zmiany zostaną utracone.")) return;
-    setTimeline(initialTimelineData);
-    setCollapsed({});
-    setQuery("");
-  };
-
-  const openAddModal = (groupId: string) => {
+  const openAddModal = (groupIdString: string) => {
     setEditing({
-      id: `t-${uid()}`,
-      groupId: groupId,
+      groupId: Number(groupIdString),
       title: "",
       details: "",
       status: "todo"
     });
   };
 
-  const openEditModal = (groupId: string, task: Task) => {
+  const openEditModal = (groupIdString: string, task: Task) => {
     setEditing({
-      ...task,
-      groupId
+      id: task.id,
+      groupId: Number(groupIdString),
+      title: task.title,
+      details: task.details,
+      status: task.status
     });
-  };
-
-  const saveTask = (form: TaskFormState) => {
-    setTimeline((curr) => {
-      let newTimeline = [...curr];
-
-      const originalGroup = newTimeline.find(g => g.tasks.some(t => t.id === form.id));
-      if (originalGroup) {
-         newTimeline = newTimeline.map(g => ({
-            ...g,
-            tasks: g.tasks.filter(t => t.id !== form.id)
-         }));
-      }
-
-      newTimeline = newTimeline.map(g => {
-        if (g.id === form.groupId) {
-          return {
-            ...g,
-            tasks: [...g.tasks, { id: form.id, title: form.title, details: form.details, status: form.status }]
-          };
-        }
-        return g;
-      });
-
-      return newTimeline;
-    });
-    
-    setEditing(null);
-    setCollapsed((c) => ({ ...c, [form.groupId]: false }));
-  };
-
-  const removeTask = (groupId: string, taskId: string) => {
-    if(!confirm("Usunąć ten punkt z harmonogramu?")) return;
-    setTimeline(curr => curr.map(g => 
-       g.id === groupId ? { ...g, tasks: g.tasks.filter(t => t.id !== taskId) } : g
-    ));
-    setEditing(null);
   };
 
   const btnSecondary = "inline-flex items-center justify-center px-3 py-2 rounded-xl text-sm font-medium border border-brand-200 bg-white text-stone-700 hover:bg-brand-50 transition-colors";
-  const btnAction = "inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-brand-100 text-stone-700 hover:bg-brand-200 transition-colors border border-brand-200";
+
+  if (loading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-screen bg-stone-50/50">
+            <Loader2 className="h-10 w-10 animate-spin text-accent-500 mb-4" />
+            <p className="text-stone-500">Wczytuję harmonogram...</p>
+        </div>
+      );
+  }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
+    <div className="max-w-5xl mx-auto space-y-8 p-4 md:p-8">
       
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
@@ -219,9 +213,6 @@ export default function Timeline() {
         <div className="flex items-center flex-wrap gap-2">
           <button onClick={expandAll} className={btnSecondary}>Pokaż wszystkie</button>
           <button onClick={collapseAll} className={btnSecondary}>Zwiń wszystkie</button>
-          <button onClick={resetAll} className={btnAction} title="Przywróć domyślne">
-            <RefreshCw size={16} />
-          </button>
         </div>
       </div>
 
@@ -295,12 +286,12 @@ export default function Timeline() {
                       </button>
                       
                       <div className="h-1 w-full bg-stone-100">
-                         <div 
+                          <div 
                             className={`h-full transition-all duration-500 ${isCompleted ? "bg-green-500" : "bg-accent-400"}`}
-                            style={{ width: `${(groupDone / groupTotal) * 100}%` }}
-                         />
-                      </div>
-                   </div>
+                            style={{ width: groupTotal > 0 ? `${(groupDone / groupTotal) * 100}%` : '0%' }}
+                          />
+                       </div>
+                    </div>
                 </div>
 
                 <div
@@ -313,7 +304,7 @@ export default function Timeline() {
                         className={`group flex items-start gap-3 p-3 rounded-xl border transition-all hover:shadow-sm bg-white ${task.status === "done" ? "border-stone-100 bg-stone-50/50" : "border-stone-200"}`}
                       >
                         <button
-                          onClick={() => toggleTask(group.id, task.id)}
+                          onClick={() => toggleTask(task.id, task.status)}
                           className={`mt-0.5 flex-shrink-0 w-6 h-6 rounded-full border flex items-center justify-center transition-all ${
                             task.status === "done" 
                               ? "bg-green-500 border-green-500 text-white scale-105" 
@@ -361,10 +352,10 @@ export default function Timeline() {
           )}
           
           <div className="relative z-10 flex items-center gap-4 -ml-[11px] sm:-ml-[11px] opacity-50">
-             <div className="w-6 h-6 rounded-full bg-stone-200 flex items-center justify-center text-white">
-                <div className="w-2 h-2 bg-stone-400 rounded-full" />
-             </div>
-             <div className="text-sm text-stone-400 font-medium">Koniec harmonogramu</div>
+              <div className="w-6 h-6 rounded-full bg-stone-200 flex items-center justify-center text-white">
+                 <div className="w-2 h-2 bg-stone-400 rounded-full" />
+              </div>
+              <div className="text-sm text-stone-400 font-medium">Koniec harmonogramu</div>
           </div>
 
         </div>
@@ -384,9 +375,9 @@ export default function Timeline() {
             
             <TimelineEditor 
                value={editing} 
-               groups={timeline} 
+               groups={groups} 
                onSave={saveTask} 
-               onDelete={() => removeTask(editing.groupId, editing.id)}
+               onDelete={() => editing.id ? removeTask(editing.id) : setEditing(null)}
                onCancel={() => setEditing(null)}
             />
           </div>
@@ -410,7 +401,10 @@ function TimelineEditor({
    onCancel: () => void;
    onDelete: () => void;
 }) {
-  const [form, setForm] = useState<TaskFormState>(value);
+  const [form, setForm] = useState<TaskFormState>(() => ({
+      ...value,
+      groupId: value.groupId || (groups.length > 0 ? groups[0].id : 0)
+  }));
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -437,15 +431,27 @@ function TimelineEditor({
                 <label className="block text-xs font-medium text-stone-500 mb-1.5">Kiedy?</label>
                 <div className="relative">
                    <select 
-                      className="w-full appearance-none rounded-xl border border-stone-200 px-4 py-3 bg-white text-stone-700 outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
+                      style={{ color: '#000000', backgroundColor: '#ffffff', opacity: 1 }}
+                      className="w-full rounded-xl border border-stone-200 px-4 py-3 bg-white text-black outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20 cursor-pointer block appearance-none"
                       value={form.groupId}
-                      onChange={(e) => setForm({...form, groupId: e.target.value})}
+                      onChange={(e) => setForm({...form, groupId: Number(e.target.value)})}
                    >
+                      {(!form.groupId || groups.length === 0) && (
+                          <option value={0} style={{ color: 'gray' }}>Wybierz etap...</option>
+                      )}
+
                       {groups.map(g => (
-                         <option key={g.id} value={g.id}>{g.timeLabel}</option>
+                         <option 
+                            key={g.id} 
+                            value={g.id} 
+                            style={{ color: '#000000', backgroundColor: '#ffffff' }}
+                         >
+                            {g.timelabel}
+                         </option>
                       ))}
                    </select>
-                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
+                   
+                   <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-500">
                       <Calendar size={16} />
                    </div>
                 </div>
@@ -464,13 +470,16 @@ function TimelineEditor({
        </div>
 
        <div className="flex justify-between pt-4 border-t border-stone-100">
-          <button 
-             type="button" 
-             onClick={onDelete}
-             className="text-stone-400 hover:text-rose-600 px-2 py-2 text-sm font-medium transition-colors"
-          >
-             Usuń punkt
-          </button>
+          {value.id ? (
+              <button 
+                 type="button" 
+                 onClick={onDelete}
+                 className="text-stone-400 hover:text-rose-600 px-2 py-2 text-sm font-medium transition-colors"
+              >
+                 Usuń punkt
+              </button>
+          ) : <div/>}
+          
           <div className="flex gap-3">
              <button 
                 type="button"

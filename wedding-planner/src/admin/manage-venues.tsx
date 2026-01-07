@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Search, Pencil, Trash2, MapPin } from "lucide-react";
-import { VENUES } from "@/data/venues";
+// import { VENUES } from "@/data/venues";
 import { Button } from "@/components/ui/button";
 
 export default function ManageVenues() {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Plus, Search, Pencil, Trash2, MapPin, Camera } from "lucide-react";
-import { PHOTOGRAPHERS } from "@/data/photographers";
+// import { PHOTOGRAPHERS } from "@/data/photographers";
 import { Button } from "@/components/ui/button";
 
 export default function ManagePhotographers() {

@@ -8,12 +8,22 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { 
   Star, MapPin, Filter, Sparkles, Info, Heart, X, 
-  Calendar, ArrowLeft, Music as MusicIcon, Mic2, Speaker, Headphones, Check, PlayCircle 
+  Calendar, ArrowLeft, Music as MusicIcon, Mic2, Speaker, Headphones, Check, PlayCircle, Loader2 
 } from "lucide-react";
+import api from "../lib/api";
 
-import { MUSIC, type MusicItem } from "@/data/music";
+export interface MusicItem {
+  id: string | number;
+  name: string;
+  type: string;
+  city: string;
+  priceFrom: number;
+  img: string;
+  desc: string;
+  rating?: number;
+}
 
-//const CART_KEY = "wp_cart_music";
+const CART_KEY = "wp_cart_music";
 
 function numberFmt(n: number) {
   return new Intl.NumberFormat("pl-PL").format(n);
@@ -33,7 +43,7 @@ function MusicDetailsPage({ item, onBack, onBook }: { item: MusicItem, onBack: (
   ];
 
   const TypeIcon = item.type.toLowerCase().includes("dj") ? Headphones : Mic2;
-  const rating = useMemo(() => (item.id.charCodeAt(0) % 5) / 10 + 4.5, [item.id]);
+  const rating = item.rating || ((typeof item.id === 'number' ? item.id : item.name.length) % 5) / 10 + 4.5;
 
   return (
     <div className="min-h-screen bg-white animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -84,7 +94,7 @@ function MusicDetailsPage({ item, onBack, onBook }: { item: MusicItem, onBack: (
 
           <div>
             <h2 className="text-2xl font-semibold mb-4 text-stone-900">O wykonawcy</h2>
-            <p className="text-lg text-stone-600 leading-relaxed">{item.desc}</p>
+            <p className="text-lg text-stone-600 leading-relaxed">{item.desc || "Brak opisu wykonawcy."}</p>
             <p className="mt-4 text-stone-600">
               Zapewniamy profesjonalne nagłośnienie i oświetlenie. Nasz repertuar jest dopasowywany do gości, 
               aby parkiet był pełny do białego rana.
@@ -170,9 +180,47 @@ export default function MusicPro() {
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 20000]);
   const [sort, setSort] = useState<SortKey>("rekomendowane");
   
-  const [selectedId, setSelectedId] = useState<string | null>(null); 
-  const [viewDetailsId, setViewDetailsId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | number | null>(null); 
+  const [viewDetailsId, setViewDetailsId] = useState<string | number | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const [musicList, setMusicList] = useState<MusicItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMusic = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get("/music/");
+        console.log("Dane muzyków z API:", response.data);
+
+        const mapped: MusicItem[] = response.data.map((m: any) => {
+            let typeName = "Zespół";
+            if (m.name && m.name.toLowerCase().includes("dj")) typeName = "DJ";
+            else if (m.name && m.name.toLowerCase().includes("quartet")) typeName = "Kwartet";
+
+            return {
+                id: m.id,
+                name: m.name,
+                city: m.city || "Cała Polska", 
+                type: typeName, 
+                priceFrom: Number(m.pricefrom) || Number(m.price) || 4000,
+                img: m.imageurl || "https://images.unsplash.com/photo-1516280440614-6697288d5d38?q=80&w=1200&auto=format&fit=crop",
+                desc: m.description || "Profesjonalna oprawa muzyczna Twojego wesela.",
+                rating: Number(m.rating) || undefined 
+            };
+        });
+
+        setMusicList(mapped);
+      } catch (error) {
+        console.error("Błąd pobierania muzyków:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMusic();
+  }, []);
 
   const [shortlist, setShortlist] = useState<string[]>(() => {
     try {
@@ -181,18 +229,20 @@ export default function MusicPro() {
   });
   
   const [minPrice, maxPrice] = useMemo(() => {
-     if (MUSIC.length === 0) return [0, 20000];
-     const prices = MUSIC.map(m => m.priceFrom);
+     if (musicList.length === 0) return [0, 20000];
+     const prices = musicList.map(m => m.priceFrom);
      return [Math.min(...prices), Math.max(...prices)];
-  }, []);
+  }, [musicList]);
 
-  useEffect(() => { setPriceRange([minPrice, maxPrice]) }, [minPrice, maxPrice]);
+  useEffect(() => { 
+      if(musicList.length > 0) setPriceRange([minPrice, maxPrice]) 
+  }, [minPrice, maxPrice, musicList.length]);
 
-  const types = useMemo(() => ["Wszystkie", ...Array.from(new Set(MUSIC.map(m => m.type)))], []);
-  const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(MUSIC.map(m => m.city)))], []);
+  const types = useMemo(() => ["Wszystkie", ...Array.from(new Set(musicList.map(m => m.type)))], [musicList]);
+  const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(musicList.map(m => m.city)))], [musicList]);
 
   const filtered = useMemo(() => {
-    const items = MUSIC.filter((m) => {
+    const items = musicList.filter((m) => {
       const hay = `${m.name} ${m.city} ${m.type} ${m.desc}`.toLowerCase();
       const matchesText = q ? hay.includes(q.toLowerCase()) : true;
       const matchesCity = city === "Wszystkie" ? true : m.city === city;
@@ -207,16 +257,18 @@ export default function MusicPro() {
       case "nazwa": items.sort((a, b) => a.name.localeCompare(b.name, "pl")); break;
     }
     return items;
-  }, [q, city, mtype, priceRange, sort]);
+  }, [musicList, q, city, mtype, priceRange, sort]);
 
   useEffect(() => { localStorage.setItem("wp_music_shortlist", JSON.stringify(shortlist)); }, [shortlist]);
-  const toggleShortlist = (e: React.MouseEvent, id: string) => {
+  
+  const toggleShortlist = (e: React.MouseEvent, id: string | number) => {
     e.stopPropagation();
-    setShortlist((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+    const idStr = String(id);
+    setShortlist((s) => (s.includes(idStr) ? s.filter((x) => x !== idStr) : [...s, idStr]));
   };
 
-  const selectedItem = useMemo(() => MUSIC.find(m => m.id === selectedId), [selectedId]);
-  const detailsItem = useMemo(() => MUSIC.find(m => m.id === viewDetailsId), [viewDetailsId]);
+  const selectedItem = useMemo(() => musicList.find(m => m.id === selectedId), [selectedId, musicList]);
+  const detailsItem = useMemo(() => musicList.find(m => m.id === viewDetailsId), [viewDetailsId, musicList]);
   const [bookingForm, setBookingForm] = useState({ date: "", notes: "" });
 
   if (viewDetailsId && detailsItem) {
@@ -227,7 +279,7 @@ export default function MusicPro() {
            onBack={() => setViewDetailsId(null)} 
            onBook={() => setSelectedId(detailsItem.id)}
         />
-        {selectedId && <BookingSheet selectedItem={MUSIC.find(m => m.id === selectedId)} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
+        {selectedId && <BookingSheet selectedItem={selectedItem} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
       </>
     )
   }
@@ -249,8 +301,8 @@ export default function MusicPro() {
             </p>
           </div>
           <div className="flex gap-4">
-             <StatCard label="Artystów" value={String(MUSIC.length)} />
-             <StatCard label="Śr. Cena" value="4 500" />
+             <StatCard label="Artystów" value={String(musicList.length)} />
+             <StatCard label="Śr. Cena" value={musicList.length > 0 ? numberFmt(Math.round(musicList.reduce((acc, curr) => acc + curr.priceFrom, 0) / musicList.length)) : "-"} />
           </div>
         </header>
 
@@ -374,10 +426,16 @@ export default function MusicPro() {
           </aside>
 
           <section className="lg:col-span-9">
-             {filtered.length === 0 ? (
+             {loading ? (
+                 <div className="flex h-64 flex-col items-center justify-center">
+                     <Loader2 className="h-10 w-10 animate-spin text-purple-500 mb-4" />
+                     <p className="text-stone-500">Stroję instrumenty...</p>
+                 </div>
+             ) : filtered.length === 0 ? (
                <div className="flex h-64 flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white text-center">
                   <div className="rounded-full bg-stone-100 p-4"><MusicIcon className="h-6 w-6 text-stone-400" /></div>
                   <h3 className="mt-4 text-lg font-semibold text-stone-900">Brak wyników</h3>
+                  <p className="text-stone-500">Zmień kryteria wyszukiwania.</p>
                </div>
              ) : (
                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
@@ -399,14 +457,14 @@ export default function MusicPro() {
                         <button
                           onClick={(e) => toggleShortlist(e, item.id)}
                           className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-300 ${
-                            shortlist.includes(item.id)
+                            shortlist.includes(String(item.id))
                               ? "bg-white text-rose-500 shadow-lg scale-110"
                               : "bg-black/50 text-white backdrop-blur-sm hover:bg-white hover:text-rose-500"
                           }`}
                         >
                           <Heart
                             className={`h-5 w-5 ${
-                              shortlist.includes(item.id) ? "fill-current" : ""
+                              shortlist.includes(String(item.id)) ? "fill-current" : ""
                             }`}
                           />
                         </button>
@@ -470,8 +528,22 @@ function StatCard({ label, value }: { label: string, value: string }) {
   )
 }
 
-function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }) {
+function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }: any) {
     if (!selectedItem) return null;
+    
+    const handleAddToCart = () => {
+        try {
+            const raw = localStorage.getItem(CART_KEY);
+            const prev: MusicItem[] = raw ? JSON.parse(raw) : [];
+            const exists = prev.some((p) => String(p.id) === String(selectedItem.id));
+            if (!exists) {
+                const next = [...prev, selectedItem];
+                localStorage.setItem(CART_KEY, JSON.stringify(next));
+            }
+        } catch (e) { console.error(e) }
+        onClose();
+    }
+
     return (
         <Sheet open={!!selectedItem} onOpenChange={(o)=> !o && onClose()}>
         <SheetContent side="right" className="w-full sm:max-w-md border-l-0 shadow-2xl p-0 sm:rounded-l-[2rem] overflow-hidden flex flex-col">
@@ -514,10 +586,15 @@ function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }) {
                </div>
            </div>
 
-           <SheetFooter className="p-6 pt-2 bg-white border-t border-stone-100">
-               <Button size="lg" className="w-full rounded-xl bg-rose-600 hover:bg-rose-700 h-14 text-lg shadow-lg shadow-rose-900/20">Wyślij zapytanie</Button>
+           <SheetFooter className="p-6 pt-2 bg-white border-t border-stone-100 grid grid-cols-2 gap-3">
+               <Button size="lg" variant="outline" className="w-full rounded-xl h-14" onClick={handleAddToCart}>
+                   <Heart className="h-4 w-4 mr-2" /> Dodaj
+               </Button>
+               <Button size="lg" className="w-full rounded-xl bg-rose-600 hover:bg-rose-700 h-14 text-lg shadow-lg shadow-rose-900/20">
+                   Wyślij
+               </Button>
            </SheetFooter>
         </SheetContent>
-      </Sheet>
+        </Sheet>
     )
 }

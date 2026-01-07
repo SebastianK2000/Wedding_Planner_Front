@@ -8,12 +8,23 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { 
   Star, MapPin, Filter, Sparkles, Info, Heart, X, 
-  Calendar, ArrowLeft, Camera, Drone, Check, UserCheck 
+  Calendar, ArrowLeft, Camera, Drone, Check, UserCheck, Loader2 
 } from "lucide-react";
-
-import { PHOTOGRAPHERS, type PhotographerItem } from "@/data/photographers";
+import api from "../lib/api"; 
 
 const CART_KEY = "wp_cart_photographers";
+
+export interface PhotographerItem {
+  id: string | number;
+  name: string;
+  city: string;
+  priceFrom: number;
+  rating: number;
+  img: string;
+  desc: string;
+  tags: string[]; 
+  features?: string[];
+}
 
 function numberFmt(n: number) {
   return new Intl.NumberFormat("pl-PL").format(n);
@@ -21,18 +32,19 @@ function numberFmt(n: number) {
 
 type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "nazwa" | "ocena";
 
-
 function PhotographerDetailsPage({ item, onBack, onBook }: { item: PhotographerItem, onBack: () => void, onBook: () => void }) {
-  const rating = useMemo(() => (item.id.charCodeAt(2) % 5) / 10 + 4.5, [item.id]);
-  const features = (item as unknown as { features?: string[] }).features ?? ["Reportaż (10h)", "Sesja plenerowa", "Zdjęcia z drona", "Galeria online", "Album", "Pendrive"];
+  const features = item.features && item.features.length > 0 
+    ? item.features 
+    : ["Reportaż ślubny (10h)", "Sesja plenerowa", "Zdjęcia z drona", "Galeria online (300+ zdjęć)", "Prywatna galeria www", "Pendrive w pudełku"];
   
   const [form, setForm] = useState({ date: "", message: "" });
 
   const getIcon = (feature: string) => {
-    if(feature.includes("drona")) return <Drone className="h-5 w-5"/>;
-    if(feature.includes("Reportaż")) return <Camera className="h-5 w-5"/>;
-    if(feature.includes("plenerowa")) return <Sparkles className="h-5 w-5"/>;
-    if(feature.includes("Album")) return <Info className="h-5 w-5"/>;
+    const f = feature.toLowerCase();
+    if(f.includes("dron")) return <Drone className="h-5 w-5"/>;
+    if(f.includes("reportaż") || f.includes("zdjęcia")) return <Camera className="h-5 w-5"/>;
+    if(f.includes("plener") || f.includes("sesja")) return <Sparkles className="h-5 w-5"/>;
+    if(f.includes("album") || f.includes("pendrive") || f.includes("galeria")) return <Info className="h-5 w-5"/>;
     return <Check className="h-5 w-5"/>;
   }
 
@@ -57,15 +69,13 @@ function PhotographerDetailsPage({ item, onBack, onBook }: { item: PhotographerI
           <div className="flex items-center gap-4 text-lg font-medium opacity-90">
             <span className="flex items-center gap-1"><MapPin className="h-5 w-5" /> {item.city}</span>
             <span>•</span>
-            <span className="flex items-center gap-1"><Star className="h-5 w-5 fill-yellow-400 text-yellow-400" /> {rating.toFixed(1)}</span>
+            <span className="flex items-center gap-1"><Star className="h-5 w-5 fill-yellow-400 text-yellow-400" /> {item.rating.toFixed(1)}</span>
           </div>
         </div>
       </div>
 
       <div className="mx-auto max-w-7xl px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-12">
-        
         <div className="lg:col-span-2 space-y-10">
-          
           <div className="flex gap-6 border-b border-stone-100 pb-8">
              <div className="space-y-1">
                <span className="text-sm text-stone-500">Cena pakietu od</span>
@@ -77,17 +87,16 @@ function PhotographerDetailsPage({ item, onBack, onBook }: { item: PhotographerI
             <div className="space-y-1">
                <span className="text-sm text-stone-500">Styl pracy</span>
                <div className="font-semibold text-lg flex items-center gap-2">
-                 <UserCheck className="h-5 w-5 text-stone-400"/> Reportaż, Boho
+                 <UserCheck className="h-5 w-5 text-stone-400"/> {item.tags.join(", ")}
                </div>
             </div>
           </div>
 
           <div>
             <h2 className="text-2xl font-semibold mb-4 text-stone-900">O fotografie</h2>
-            <p className="text-lg text-stone-600 leading-relaxed">{item.desc}</p>
+            <p className="text-lg text-stone-600 leading-relaxed">{item.desc || "Brak opisu."}</p>
             <p className="mt-4 text-stone-600">
-              Specjalizuję się w naturalnych kadrach, łapaniu ulotnych chwil i prawdziwych emocji. 
-              Moim celem jest stworzenie pamiątki, która będzie Was wzruszać przez lata.
+              Specjalizuję się w naturalnych kadrach, łapaniu ulotnych chwil i prawdziwych emocji.
             </p>
           </div>
 
@@ -111,7 +120,7 @@ function PhotographerDetailsPage({ item, onBack, onBook }: { item: PhotographerI
                  <span className="text-stone-500 text-sm"> / pakiet</span>
                </div>
                <div className="flex items-center gap-1 text-sm font-medium">
-                 <Star className="h-4 w-4 fill-stone-900" /> {rating.toFixed(1)}
+                 <Star className="h-4 w-4 fill-stone-900" /> {item.rating.toFixed(1)}
                </div>
             </div>
 
@@ -119,25 +128,13 @@ function PhotographerDetailsPage({ item, onBack, onBook }: { item: PhotographerI
               <div className="rounded-xl border border-stone-200 overflow-hidden">
                  <div className="border-b border-stone-200 p-3 bg-stone-50">
                    <label className="block text-xs font-semibold uppercase text-stone-500 mb-1">Data ślubu</label>
-                   <input 
-                      type="date" 
-                      className="w-full bg-transparent text-sm outline-none cursor-pointer" 
-                      value={form.date} 
-                      onChange={(e)=>setForm({...form, date: e.target.value})} 
-                   />
+                   <input type="date" className="w-full bg-transparent text-sm outline-none cursor-pointer" value={form.date} onChange={(e)=>setForm({...form, date: e.target.value})} />
                  </div>
                  <div className="p-3 bg-white">
                    <label className="block text-xs font-semibold uppercase text-stone-500 mb-1">Twoja wiadomość</label>
-                   <input 
-                      type="text" 
-                      placeholder="Krótka wiadomość..."
-                      value={form.message} 
-                      onChange={(e)=>setForm({...form, message: e.target.value})} 
-                      className="w-full bg-transparent text-sm outline-none" 
-                   />
+                   <input type="text" placeholder="Krótka wiadomość..." value={form.message} onChange={(e)=>setForm({...form, message: e.target.value})} className="w-full bg-transparent text-sm outline-none" />
                  </div>
               </div>
-
               <Button onClick={onBook} size="lg" className="w-full h-14 text-lg rounded-xl bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-200">
                 Zapytaj o termin
               </Button>
@@ -145,7 +142,6 @@ function PhotographerDetailsPage({ item, onBack, onBook }: { item: PhotographerI
             </div>
           </div>
         </div>
-
       </div>
     </div>
   )
@@ -158,9 +154,52 @@ export default function PhotographerPro() {
   const [sort, setSort] = useState<SortKey>("rekomendowane");
   const [onlyTop, setOnlyTop] = useState(false);
   
-  const [selectedId, setSelectedId] = useState<string | null>(null); 
-  const [viewDetailsId, setViewDetailsId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | number | null>(null); 
+  const [viewDetailsId, setViewDetailsId] = useState<string | number | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const [photographers, setPhotographers] = useState<PhotographerItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchPhotographers = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get("/photographers/");
+        console.log("Dane fotografów z API:", response.data);
+
+        const mapped: PhotographerItem[] = response.data.map((p: any) => {
+
+            const pseudoId = typeof p.id === 'number' ? p.id : 1;
+            const generatedRating = 4.5 + ((pseudoId * 7) % 5) / 10;
+            
+            const generatedTags = (pseudoId % 2 === 0) 
+                ? ["Reportaż", "Klasyczny", "Plener"] 
+                : ["Boho", "Artystyczny", "Dron"];
+
+            return {
+                id: p.id,
+                name: p.name,
+                city: p.city || "Cała Polska",
+                priceFrom: Number(p.pricefrom) || 3000,
+                rating: generatedRating, 
+                img: p.imageurl || "https://images.unsplash.com/photo-1554048612-387768052bf7?q=80&w=1200&auto=format&fit=crop",
+                desc: p.description || "Doświadczony fotograf, który zadba o każdy detal Waszego dnia.",
+                tags: generatedTags, 
+                features: [] 
+            };
+        });
+
+        setPhotographers(mapped);
+      } catch (error) {
+        console.error("Błąd pobierania fotografów:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchPhotographers();
+  }, []);
 
   const [shortlist, setShortlist] = useState<string[]>(() => {
     try {
@@ -169,24 +208,24 @@ export default function PhotographerPro() {
   });
 
   const [minPrice, maxPrice] = useMemo(() => {
-     if (PHOTOGRAPHERS.length === 0) return [0, 20000];
-     const prices = PHOTOGRAPHERS.map(p => p.priceFrom);
-     return [Math.min(...prices), Math.max(...prices)];
-  }, []);
+      if (photographers.length === 0) return [0, 20000];
+      const prices = photographers.map(p => p.priceFrom);
+      return [Math.min(...prices), Math.max(...prices)];
+  }, [photographers]);
 
-  useEffect(() => { setPriceRange([minPrice, maxPrice]) }, [minPrice, maxPrice]);
+  useEffect(() => { 
+      if(photographers.length > 0) setPriceRange([minPrice, maxPrice]) 
+  }, [minPrice, maxPrice, photographers.length]);
 
-  const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(PHOTOGRAPHERS.map(p => p.city)))], []);
+  const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(photographers.map(p => p.city)))], [photographers]);
 
   const filtered = useMemo(() => {
-    const items = PHOTOGRAPHERS.filter((p) => {
-      const rating = (p.id.charCodeAt(2) % 5) / 10 + 4.5;
-      
+    const items = photographers.filter((p) => {
       const hay = `${p.name} ${p.city} ${p.desc}`.toLowerCase();
       const matchesText = q ? hay.includes(q.toLowerCase()) : true;
       const matchesCity = city === "Wszystkie" ? true : p.city === city;
       const matchesPrice = p.priceFrom >= priceRange[0] && p.priceFrom <= priceRange[1];
-      const matchesTop = !onlyTop || rating >= 4.7;
+      const matchesTop = !onlyTop || p.rating >= 4.7;
 
       return matchesText && matchesCity && matchesPrice && matchesTop;
     });
@@ -195,19 +234,21 @@ export default function PhotographerPro() {
       case "cena-rosn": items.sort((a, b) => a.priceFrom - b.priceFrom); break;
       case "cena-malej": items.sort((a, b) => b.priceFrom - a.priceFrom); break;
       case "nazwa": items.sort((a, b) => a.name.localeCompare(b.name, "pl")); break;
-      default: break;
+      default: items.sort((a, b) => b.rating - a.rating); break;
     }
     return items;
-  }, [q, city, priceRange, sort, onlyTop]);
+  }, [photographers, q, city, priceRange, sort, onlyTop]);
 
   useEffect(() => { localStorage.setItem("wp_photographers_shortlist", JSON.stringify(shortlist)); }, [shortlist]);
-  const toggleShortlist = (e: React.MouseEvent, id: string) => {
+  
+  const toggleShortlist = (e: React.MouseEvent, id: string | number) => {
     e.stopPropagation();
-    setShortlist((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+    const idStr = String(id);
+    setShortlist((s) => (s.includes(idStr) ? s.filter((x) => x !== idStr) : [...s, idStr]));
   };
 
-  const selectedItem = useMemo(() => PHOTOGRAPHERS.find(p => p.id === selectedId), [selectedId]);
-  const detailsItem = useMemo(() => PHOTOGRAPHERS.find(p => p.id === viewDetailsId), [viewDetailsId]);
+  const selectedItem = useMemo(() => photographers.find(p => p.id === selectedId), [selectedId, photographers]);
+  const detailsItem = useMemo(() => photographers.find(p => p.id === viewDetailsId), [viewDetailsId, photographers]);
   const [bookingForm, setBookingForm] = useState({ date: "", notes: "" });
 
   if (viewDetailsId && detailsItem) {
@@ -218,7 +259,7 @@ export default function PhotographerPro() {
            onBack={() => setViewDetailsId(null)} 
            onBook={() => setSelectedId(detailsItem.id)}
         />
-        {selectedId && <BookingSheet selectedItem={PHOTOGRAPHERS.find(p => p.id === selectedId)} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
+        {selectedId && <BookingSheet selectedItem={selectedItem} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
       </>
     )
   }
@@ -240,8 +281,8 @@ export default function PhotographerPro() {
             </p>
           </div>
           <div className="flex gap-4">
-             <StatCard label="Artystów" value={String(PHOTOGRAPHERS.length)} />
-             <StatCard label="Pakiet od" value={numberFmt(minPrice)} />
+             <StatCard label="Artystów" value={String(photographers.length)} />
+             <StatCard label="Pakiet od" value={photographers.length > 0 ? numberFmt(minPrice) : "-"} />
           </div>
         </header>
 
@@ -344,7 +385,12 @@ export default function PhotographerPro() {
           </aside>
 
           <section className="lg:col-span-9">
-             {filtered.length === 0 ? (
+             {loading ? (
+                 <div className="flex h-64 flex-col items-center justify-center">
+                     <Loader2 className="h-10 w-10 animate-spin text-rose-500 mb-4" />
+                     <p className="text-stone-500">Szukam najlepszych kadrów...</p>
+                 </div>
+             ) : filtered.length === 0 ? (
                <div className="flex h-64 flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white text-center">
                   <div className="rounded-full bg-stone-100 p-4"><Camera className="h-6 w-6 text-stone-400" /></div>
                   <h3 className="mt-4 text-lg font-semibold text-stone-900">Brak wyników</h3>
@@ -352,11 +398,7 @@ export default function PhotographerPro() {
                </div>
              ) : (
                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                 {filtered.map((item) => {
-                   const rating = (item.id.charCodeAt(2) % 5) / 10 + 4.5;
-                   const tags = (item.id.charCodeAt(3) % 2 === 0) ? ["reportaż", "plener"] : ["dron", "boho"];
-
-                   return (
+                 {filtered.map((item) => (
                    <Card key={item.id} className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border-0 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                       <div className="relative aspect-[4/3] w-full overflow-hidden">
                         <img src={item.img} alt={item.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
@@ -366,19 +408,18 @@ export default function PhotographerPro() {
                           <button 
                              onClick={(e)=>toggleShortlist(e, item.id)} 
                              className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-300 ${
-                               shortlist.includes(item.id) 
+                               shortlist.includes(String(item.id)) 
                                ? "bg-white text-rose-500 shadow-lg scale-110" 
                                : "bg-black/20 text-white backdrop-blur-sm hover:bg-white hover:text-rose-500"
                              }`}
-                          >
-                            <Heart className={`h-5 w-5 ${shortlist.includes(item.id) ? "fill-current" : ""}`} />
-                          </button>
+                           >
+                             <Heart className={`h-5 w-5 ${shortlist.includes(String(item.id)) ? "fill-current" : ""}`} />
+                           </button>
                         </div>
-                        {rating >= 4.8 && (
-                          <div className="absolute top-3 left-3 z-10 flex gap-2">
-                             <Badge className="bg-white/90 text-stone-800 backdrop-blur-sm hover:bg-white px-2"><Star className="mr-1 h-3 w-3 fill-yellow-400 text-yellow-400" /> {rating.toFixed(1)}</Badge>
-                          </div>
-                        )}
+                        
+                        <div className="absolute top-3 left-3 z-10 flex gap-2">
+                             <Badge className="bg-white/90 text-stone-800 backdrop-blur-sm hover:bg-white px-2"><Star className="mr-1 h-3 w-3 fill-yellow-400 text-yellow-400" /> {item.rating.toFixed(1)}</Badge>
+                        </div>
                         
                         <div className="absolute bottom-3 left-4 z-10 text-white">
                            <p className="text-xs font-medium text-white/80 uppercase tracking-wider">Pakiet od</p>
@@ -394,18 +435,18 @@ export default function PhotographerPro() {
                            </p>
                         </div>
                         <div className="mt-4 flex flex-wrap gap-2">
-                            {tags.map(t => (
-                                <Badge key={t} variant="outline" className="text-stone-500 border-stone-200 font-normal">{t}</Badge>
+                            {item.tags.slice(0, 2).map((t, idx) => (
+                                <Badge key={idx} variant="outline" className="text-stone-500 border-stone-200 font-normal">{t}</Badge>
                             ))}
                         </div>
                       </CardContent>
 
                       <CardFooter className="p-5 pt-0 gap-3">
-                         <Button onClick={() => setViewDetailsId(item.id)} variant="outline" className="flex-1 rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50">Szczegóły</Button>
-                         <Button onClick={() => setSelectedId(item.id)} className="flex-1 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg shadow-stone-900/20">Zapytaj</Button>
+                          <Button onClick={() => setViewDetailsId(item.id)} variant="outline" className="flex-1 rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50">Szczegóły</Button>
+                          <Button onClick={() => setSelectedId(item.id)} className="flex-1 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg shadow-stone-900/20">Zapytaj</Button>
                       </CardFooter>
                    </Card>
-                 )})}
+                 ))}
                </div>
              )}
           </section>
@@ -426,14 +467,14 @@ function StatCard({ label, value }: { label: string, value: string }) {
   )
 }
 
-function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }) {
+function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }: any) {
     if (!selectedItem) return null;
     
     const handleAddToCart = () => {
         try {
             const raw = localStorage.getItem(CART_KEY);
             const prev: PhotographerItem[] = raw ? JSON.parse(raw) : [];
-            const exists = prev.some((p) => p.id === selectedItem.id);
+            const exists = prev.some((p) => String(p.id) === String(selectedItem.id));
             if (!exists) {
                 const next = [...prev, selectedItem];
                 localStorage.setItem(CART_KEY, JSON.stringify(next));
@@ -493,6 +534,6 @@ function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }) {
                </Button>
            </SheetFooter>
         </SheetContent>
-      </Sheet>
+        </Sheet>
     )
 }

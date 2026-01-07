@@ -1,7 +1,7 @@
-import { useMemo, useState } from "react";
-import { GUESTS, type Guest, type GuestStatus } from "@/data/guests";
+import { useEffect, useMemo, useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import api from "../lib/api";
 import { 
   Users, 
   CheckCircle2, 
@@ -16,8 +16,36 @@ import {
   MapPin, 
   UserPlus,
   Pencil,
-  Trash2
+  Trash2,
+  Loader2
 } from "lucide-react";
+
+export type GuestStatus = "potwierdzone" | "oczekuje" | "odmowa";
+
+export interface Guest {
+  id: number | string;
+  name: string;
+  status: GuestStatus;
+  side: "panna młoda" | "pan młody" | "wspólni";
+  plusOne: boolean;
+  diet?: string;
+  table: number | null;
+  email?: string;
+  phone?: string;
+  notes?: string;
+}
+
+const ID_TO_STATUS: Record<number, GuestStatus> = {
+    1: "potwierdzone",
+    2: "oczekuje",
+    3: "odmowa"
+};
+
+const STATUS_TO_ID: Record<string, number> = {
+    "potwierdzone": 1,
+    "oczekuje": 2,
+    "odmowa": 3
+};
 
 const statusLabels: Record<GuestStatus, string> = {
   potwierdzone: "Potwierdzone",
@@ -37,15 +65,55 @@ export default function Guests() {
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  const [local, setLocal] = useState<Guest[]>(GUESTS);
+  const [local, setLocal] = useState<Guest[]>([]);
+  const [loading, setLoading] = useState(true);
+  
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Guest | null>(null);
+
+  const fetchGuests = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get("/guests/");
+      
+      const mappedGuests: Guest[] = response.data.map((g: any) => ({
+        id: g.id,
+        name: g.fullname,
+        status: (g.statusid && ID_TO_STATUS[g.statusid]) ? ID_TO_STATUS[g.statusid] : "oczekuje",
+        side: normalizeSide(g.side),
+        plusOne: g.plusone,
+        diet: "",
+        table: g.tableid || null,
+        email: g.email || "",
+        phone: g.phone || "",
+        notes: g.notes || ""
+      }));
+      setLocal(mappedGuests);
+    } catch (error) {
+      console.error("Błąd pobierania gości:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchGuests();
+  }, []);
+
+  function normalizeSide(val: any): Guest["side"] {
+      if (typeof val === 'string') {
+          const v = val.toLowerCase();
+          if (v.includes("pan") && !v.includes("panna")) return "pan młody";
+          if (v.includes("wspólni")) return "wspólni";
+      }
+      return "panna młoda";
+  }
 
   const counts = useMemo(() => {
     return local.reduce(
       (acc, g) => {
         acc.total++;
-        acc[g.status]++;
+        if (acc[g.status] !== undefined) acc[g.status]++;
         return acc;
       },
       { total: 0, potwierdzone: 0, oczekuje: 0, odmowa: 0 } as Record<string, number>
@@ -59,7 +127,7 @@ export default function Guests() {
       const okQuery =
         q.length === 0 ||
         g.name.toLowerCase().includes(q) ||
-        g.email?.toLowerCase().includes(q) ||
+        (g.email && g.email.toLowerCase().includes(q)) ||
         String(g.table ?? "").includes(q);
       return okStatus && okQuery;
     });
@@ -68,36 +136,90 @@ export default function Guests() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const pageItems = filtered.slice((page - 1) * pageSize, page * pageSize);
 
-  function cycleStatus(g: Guest) {
+  async function cycleStatus(g: Guest) {
     const next: GuestStatus =
       g.status === "potwierdzone" ? "oczekuje" : g.status === "oczekuje" ? "odmowa" : "potwierdzone";
+    
+    const prevLocal = [...local];
     setLocal((prev) =>
       prev.map((x) => (x.id === g.id ? { ...x, status: next, table: next === "odmowa" ? null : x.table } : x))
     );
+
+    try {
+        await api.patch(`/guests/${g.id}/`, { 
+            statusid: STATUS_TO_ID[next], 
+            tableid: next === "odmowa" ? null : g.table
+        });
+    } catch (err) {
+        console.error("Błąd zmiany statusu", err);
+        setLocal(prevLocal);
+    }
   }
 
-  function updateTable(g: Guest, table: number | null) {
+  async function updateTable(g: Guest, table: number | null) {
+    const prevLocal = [...local];
     setLocal((prev) => prev.map((x) => (x.id === g.id ? { ...x, table } : x)));
+
+    try {
+        await api.patch(`/guests/${g.id}/`, { 
+            tableid: table 
+        });
+    } catch (err) {
+        console.error("Błąd zmiany stolika", err);
+        setLocal(prevLocal);
+    }
   }
 
-  function deleteGuest(g: Guest) {
+  async function deleteGuest(g: Guest) {
     if (!confirm(`Usunąć gościa: ${g.name}?`)) return;
+
+    const prevLocal = [...local];
     setLocal((prev) => {
       const next = prev.filter((x) => x.id !== g.id);
       const newTotalPages = Math.max(1, Math.ceil(next.length / pageSize));
       if (page > newTotalPages && page > 1) setPage(newTotalPages);
       return next;
     });
+
+    try {
+        await api.delete(`/guests/${g.id}/`);
+    } catch (err) {
+        console.error("Błąd usuwania", err);
+        alert("Nie udało się usunąć gościa.");
+        setLocal(prevLocal);
+    }
   }
 
-  function saveGuest(guest: Guest) {
-    if (editing) {
-      setLocal((prev) => prev.map((x) => (x.id === guest.id ? guest : x)));
-    } else {
-      setLocal((prev) => [guest, ...prev]);
+  async function saveGuest(guestData: Guest) {
+    try {
+      const payload = {
+          fullname: guestData.name,
+          email: guestData.email,
+          phone: guestData.phone,
+          side: guestData.side,
+          statusid: STATUS_TO_ID[guestData.status],
+          plusone: guestData.plusOne,
+          tableid: guestData.table,
+          notes: guestData.notes,
+      };
+
+      if (editing) {
+        await api.patch(`/guests/${guestData.id}/`, payload);
+        setLocal((prev) => prev.map((x) => (x.id === guestData.id ? { ...x, ...guestData } : x)));
+      } else {
+        const response = await api.post("/guests/", payload);
+        const newGuest: Guest = {
+            ...guestData,
+            id: response.data.id
+        };
+        setLocal((prev) => [newGuest, ...prev]);
+      }
+      setModalOpen(false);
+      setEditing(null);
+    } catch (err) {
+        console.error("Błąd zapisu gościa", err);
+        alert("Wystąpił błąd podczas zapisywania.");
     }
-    setModalOpen(false);
-    setEditing(null);
   }
 
   function exportPDF() {
@@ -181,145 +303,154 @@ export default function Guests() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden hidden md:block">
-        <table className="w-full text-sm text-left">
-          <thead className="bg-stone-50/50 text-stone-500">
-            <tr>
-              <th className="py-3 px-6 font-medium">Imię i nazwisko</th>
-              <th className="py-3 px-4 font-medium">Status</th>
-              <th className="py-3 px-4 font-medium">Szczegóły</th>
-              <th className="py-3 px-4 font-medium">Stolik</th>
-              <th className="py-3 px-4 font-medium">Kontakt</th>
-              <th className="py-3 px-4 font-medium text-right">Akcje</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-stone-100">
-            {pageItems.map((g) => (
-              <tr key={g.id} className="group hover:bg-stone-50/50 transition-colors">
-                <td className="py-3 px-6">
-                  <div className="flex items-center gap-3">
-                    <Avatar name={g.name} />
-                    <div>
-                      <div className="font-medium text-stone-900">{g.name}</div>
-                      <div className="text-xs text-stone-500 capitalize">{g.side}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="py-3 px-4">
-                   <button onClick={() => cycleStatus(g)} className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition-transform active:scale-95 ${statusStyles[g.status]}`}>
-                      {statusLabels[g.status]}
-                   </button>
-                </td>
-                <td className="py-3 px-4">
-                   <div className="flex flex-col gap-1">
-                      {g.plusOne && (
-                        <span className="inline-flex items-center gap-1 text-xs text-stone-600 bg-stone-100 px-2 py-0.5 rounded w-fit">
-                           <UserPlus className="h-3 w-3" /> Osoba tow.
-                        </span>
-                      )}
-                      {g.diet && (
-                        <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded w-fit" title={g.diet}>
-                           <Utensils className="h-3 w-3" /> {g.diet.length > 15 ? g.diet.slice(0,12)+"..." : g.diet}
-                        </span>
-                      )}
-                      {!g.plusOne && !g.diet && <span className="text-stone-400 text-xs">—</span>}
-                   </div>
-                </td>
-                <td className="py-3 px-4">
-                   <div className="relative w-16">
-                      <select 
-                        value={g.table ?? ""} 
-                        onChange={(e) => updateTable(g, e.target.value ? Number(e.target.value) : null)}
-                        className="w-full appearance-none bg-stone-50 border border-stone-200 rounded-lg py-1 pl-2 pr-4 text-xs font-medium focus:ring-1 focus:ring-accent-500 outline-none"
-                      >
-                         <option value="">—</option>
-                         {Array.from({ length: 15 }).map((_, i) => <option key={i} value={i+1}>{i+1}</option>)}
-                      </select>
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400"><MapPin className="h-3 w-3" /></div>
-                   </div>
-                </td>
-                <td className="py-3 px-4">
-                   {(g.email || g.phone) ? (
-                     <div className="flex flex-col gap-0.5 text-xs text-stone-500">
-                        {g.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" /> {g.email}</div>}
-                        {g.phone && <div className="flex items-center gap-1"><Phone className="h-3 w-3" /> {g.phone}</div>}
-                     </div>
-                   ) : <span className="text-stone-400 text-xs">—</span>}
-                </td>
-                <td className="py-3 px-4 text-right">
-                   <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={() => { setEditing(g); setModalOpen(true); }} className="p-2 text-stone-400 hover:text-accent-600 hover:bg-accent-50 rounded-xl"><Pencil className="h-4 w-4" /></button>
-                      <button onClick={() => deleteGuest(g)} className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl"><Trash2 className="h-4 w-4" /></button>
-                   </div>
-                </td>
-              </tr>
-            ))}
-            {filtered.length === 0 && (
-               <tr><td colSpan={6} className="py-12 text-center text-stone-500">Brak gości spełniających kryteria.</td></tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-
-      <div className="md:hidden space-y-3">
-         {pageItems.map((g) => (
-            <div key={g.id} className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
-               <div className="flex justify-between items-start mb-3">
-                  <div className="flex items-center gap-3">
-                     <Avatar name={g.name} />
-                     <div>
-                        <div className="font-semibold text-stone-900">{g.name}</div>
+      {loading ? (
+          <div className="py-20 flex flex-col items-center justify-center text-stone-400">
+              <Loader2 className="h-10 w-10 animate-spin mb-4 text-accent-500" />
+              <p>Ładowanie listy gości...</p>
+          </div>
+      ) : (
+        <>
+        <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden hidden md:block">
+            <table className="w-full text-sm text-left">
+            <thead className="bg-stone-50/50 text-stone-500">
+                <tr>
+                <th className="py-3 px-6 font-medium">Imię i nazwisko</th>
+                <th className="py-3 px-4 font-medium">Status</th>
+                <th className="py-3 px-4 font-medium">Szczegóły</th>
+                <th className="py-3 px-4 font-medium">Stolik</th>
+                <th className="py-3 px-4 font-medium">Kontakt</th>
+                <th className="py-3 px-4 font-medium text-right">Akcje</th>
+                </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+                {pageItems.map((g) => (
+                <tr key={g.id} className="group hover:bg-stone-50/50 transition-colors">
+                    <td className="py-3 px-6">
+                    <div className="flex items-center gap-3">
+                        <Avatar name={g.name} />
+                        <div>
+                        <div className="font-medium text-stone-900">{g.name}</div>
                         <div className="text-xs text-stone-500 capitalize">{g.side}</div>
-                     </div>
-                  </div>
-                  <button onClick={() => cycleStatus(g)} className={`px-2 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wider ${statusStyles[g.status]}`}>
-                      {statusLabels[g.status]}
-                   </button>
-               </div>
-
-               <div className="grid grid-cols-2 gap-2 mb-3">
-                  <div className="bg-stone-50 p-2 rounded-xl flex flex-col justify-center">
-                     <span className="text-[10px] text-stone-500 uppercase tracking-wide mb-1">Opcje</span>
-                     <div className="flex flex-wrap gap-1">
-                        {g.plusOne && <UserPlus className="h-4 w-4 text-stone-600" />}
-                        {g.diet && <Utensils className="h-4 w-4 text-amber-600" />}
-                        {!g.plusOne && !g.diet && <span className="text-xs text-stone-400">-</span>}
-                     </div>
-                  </div>
-                  <div className="bg-stone-50 p-2 rounded-xl">
-                     <span className="text-[10px] text-stone-500 uppercase tracking-wide mb-1">Stolik</span>
-                     <select 
-                        value={g.table ?? ""} 
-                        onChange={(e) => updateTable(g, e.target.value ? Number(e.target.value) : null)}
-                        className="w-full bg-transparent text-sm font-bold text-stone-800 outline-none"
-                      >
-                         <option value="">Brak</option>
-                         {Array.from({ length: 15 }).map((_, i) => <option key={i} value={i+1}>Stół {i+1}</option>)}
-                      </select>
-                  </div>
-               </div>
-
-               {(g.email || g.phone) && (
-                  <div className="mb-3 pt-3 border-t border-stone-100 flex flex-col gap-1 text-xs text-stone-500">
-                     {g.email && <div className="flex items-center gap-2"><Mail className="h-3 w-3" /> {g.email}</div>}
-                     {g.phone && <div className="flex items-center gap-2"><Phone className="h-3 w-3" /> {g.phone}</div>}
-                  </div>
-               )}
-
-               <div className="flex justify-end gap-2 border-t border-stone-100 pt-3">
-                  <button onClick={() => { setEditing(g); setModalOpen(true); }} className="text-xs font-medium px-3 py-1.5 bg-stone-100 rounded-lg text-stone-600">Edytuj</button>
-                  <button onClick={() => deleteGuest(g)} className="text-xs font-medium px-3 py-1.5 bg-rose-50 rounded-lg text-rose-600">Usuń</button>
-               </div>
-            </div>
-         ))}
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex justify-center gap-2">
-           <button disabled={page === 1} onClick={() => setPage(p => p-1)} className="px-3 py-1 rounded-lg border border-stone-200 disabled:opacity-50 bg-white text-stone-600">Poprzednia</button>
-           <span className="px-3 py-1 text-sm text-stone-500 flex items-center">Strona {page} z {totalPages}</span>
-           <button disabled={page === totalPages} onClick={() => setPage(p => p+1)} className="px-3 py-1 rounded-lg border border-stone-200 disabled:opacity-50 bg-white text-stone-600">Następna</button>
+                        </div>
+                    </div>
+                    </td>
+                    <td className="py-3 px-4">
+                        <button onClick={() => cycleStatus(g)} className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition-transform active:scale-95 ${statusStyles[g.status]}`}>
+                        {statusLabels[g.status]}
+                        </button>
+                    </td>
+                    <td className="py-3 px-4">
+                        <div className="flex flex-col gap-1">
+                        {g.plusOne && (
+                            <span className="inline-flex items-center gap-1 text-xs text-stone-600 bg-stone-100 px-2 py-0.5 rounded w-fit">
+                            <UserPlus className="h-3 w-3" /> Osoba tow.
+                            </span>
+                        )}
+                        {g.diet && (
+                            <span className="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-50 px-2 py-0.5 rounded w-fit" title={g.diet}>
+                            <Utensils className="h-3 w-3" /> {g.diet.length > 15 ? g.diet.slice(0,12)+"..." : g.diet}
+                            </span>
+                        )}
+                        {!g.plusOne && !g.diet && <span className="text-stone-400 text-xs">—</span>}
+                        </div>
+                    </td>
+                    <td className="py-3 px-4">
+                        <div className="relative w-16">
+                        <select 
+                            value={g.table ?? ""} 
+                            onChange={(e) => updateTable(g, e.target.value ? Number(e.target.value) : null)}
+                            className="w-full appearance-none bg-stone-50 border border-stone-200 rounded-lg py-1 pl-2 pr-4 text-xs font-medium focus:ring-1 focus:ring-accent-500 outline-none"
+                        >
+                            <option value="">—</option>
+                            {Array.from({ length: 15 }).map((_, i) => <option key={i} value={i+1}>{i+1}</option>)}
+                        </select>
+                        <div className="absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400"><MapPin className="h-3 w-3" /></div>
+                        </div>
+                    </td>
+                    <td className="py-3 px-4">
+                        {(g.email || g.phone) ? (
+                        <div className="flex flex-col gap-0.5 text-xs text-stone-500">
+                            {g.email && <div className="flex items-center gap-1"><Mail className="h-3 w-3" /> {g.email}</div>}
+                            {g.phone && <div className="flex items-center gap-1"><Phone className="h-3 w-3" /> {g.phone}</div>}
+                        </div>
+                        ) : <span className="text-stone-400 text-xs">—</span>}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                        <div className="flex justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => { setEditing(g); setModalOpen(true); }} className="p-2 text-stone-400 hover:text-accent-600 hover:bg-accent-50 rounded-xl"><Pencil className="h-4 w-4" /></button>
+                        <button onClick={() => deleteGuest(g)} className="p-2 text-stone-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl"><Trash2 className="h-4 w-4" /></button>
+                        </div>
+                    </td>
+                </tr>
+                ))}
+                {filtered.length === 0 && (
+                <tr><td colSpan={6} className="py-12 text-center text-stone-500">Brak gości spełniających kryteria.</td></tr>
+                )}
+            </tbody>
+            </table>
         </div>
+
+        <div className="md:hidden space-y-3">
+            {pageItems.map((g) => (
+                <div key={g.id} className="bg-white border border-stone-200 rounded-2xl p-4 shadow-sm">
+                <div className="flex justify-between items-start mb-3">
+                    <div className="flex items-center gap-3">
+                        <Avatar name={g.name} />
+                        <div>
+                            <div className="font-semibold text-stone-900">{g.name}</div>
+                            <div className="text-xs text-stone-500 capitalize">{g.side}</div>
+                        </div>
+                    </div>
+                    <button onClick={() => cycleStatus(g)} className={`px-2 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wider ${statusStyles[g.status]}`}>
+                        {statusLabels[g.status]}
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 mb-3">
+                    <div className="bg-stone-50 p-2 rounded-xl flex flex-col justify-center">
+                        <span className="text-[10px] text-stone-500 uppercase tracking-wide mb-1">Opcje</span>
+                        <div className="flex flex-wrap gap-1">
+                            {g.plusOne && <UserPlus className="h-4 w-4 text-stone-600" />}
+                            {g.diet && <Utensils className="h-4 w-4 text-amber-600" />}
+                            {!g.plusOne && !g.diet && <span className="text-xs text-stone-400">-</span>}
+                        </div>
+                    </div>
+                    <div className="bg-stone-50 p-2 rounded-xl">
+                        <span className="text-[10px] text-stone-500 uppercase tracking-wide mb-1">Stolik</span>
+                        <select 
+                            value={g.table ?? ""} 
+                            onChange={(e) => updateTable(g, e.target.value ? Number(e.target.value) : null)}
+                            className="w-full bg-transparent text-sm font-bold text-stone-800 outline-none"
+                        >
+                            <option value="">Brak</option>
+                            {Array.from({ length: 15 }).map((_, i) => <option key={i} value={i+1}>Stół {i+1}</option>)}
+                        </select>
+                    </div>
+                </div>
+
+                {(g.email || g.phone) && (
+                    <div className="mb-3 pt-3 border-t border-stone-100 flex flex-col gap-1 text-xs text-stone-500">
+                        {g.email && <div className="flex items-center gap-2"><Mail className="h-3 w-3" /> {g.email}</div>}
+                        {g.phone && <div className="flex items-center gap-2"><Phone className="h-3 w-3" /> {g.phone}</div>}
+                    </div>
+                )}
+
+                <div className="flex justify-end gap-2 border-t border-stone-100 pt-3">
+                    <button onClick={() => { setEditing(g); setModalOpen(true); }} className="text-xs font-medium px-3 py-1.5 bg-stone-100 rounded-lg text-stone-600">Edytuj</button>
+                    <button onClick={() => deleteGuest(g)} className="text-xs font-medium px-3 py-1.5 bg-rose-50 rounded-lg text-rose-600">Usuń</button>
+                </div>
+                </div>
+            ))}
+        </div>
+
+        {totalPages > 1 && (
+            <div className="flex justify-center gap-2">
+            <button disabled={page === 1} onClick={() => setPage(p => p-1)} className="px-3 py-1 rounded-lg border border-stone-200 disabled:opacity-50 bg-white text-stone-600">Poprzednia</button>
+            <span className="px-3 py-1 text-sm text-stone-500 flex items-center">Strona {page} z {totalPages}</span>
+            <button disabled={page === totalPages} onClick={() => setPage(p => p+1)} className="px-3 py-1 rounded-lg border border-stone-200 disabled:opacity-50 bg-white text-stone-600">Następna</button>
+            </div>
+        )}
+        </>
       )}
 
       {modalOpen && (
@@ -378,22 +509,21 @@ function Avatar({ name }: { name: string }) {
 
 function GuestEditor({ initialValue, onSave, onCancel }: { initialValue: Guest | null, onSave: (g: Guest) => void, onCancel: () => void }) {
    const [form, setForm] = useState<Partial<Guest>>(initialValue || {
-      id: `g${Date.now()}`,
-      name: "",
-      status: "oczekuje",
-      side: "panna młoda",
-      plusOne: false,
-      diet: undefined,
-      table: null,
-      email: "",
-      phone: "",
-      notes: ""
+     name: "",
+     status: "oczekuje",
+     side: "panna młoda",
+     plusOne: false,
+     diet: undefined,
+     table: null,
+     email: "",
+     phone: "",
+     notes: ""
    });
 
    const handleSubmit = (e: React.FormEvent) => {
-      e.preventDefault();
-      if (!form.name?.trim()) return;
-      onSave(form as Guest);
+     e.preventDefault();
+     if (!form.name?.trim()) return;
+     onSave(form as Guest);
    };
 
    return (
@@ -474,7 +604,7 @@ function GuestEditor({ initialValue, onSave, onCancel }: { initialValue: Guest |
                   <input 
                      className="w-full rounded-xl border border-stone-200 px-4 py-2.5 text-stone-800 outline-none"
                      value={form.diet || ""}
-                     onChange={e => setForm({...form, diet: e.target.value as Guest['diet']})}
+                     onChange={e => setForm({...form, diet: e.target.value})}
                      placeholder="np. Wegetarianin"
                   />
                </div>

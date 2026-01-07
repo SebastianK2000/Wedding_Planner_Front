@@ -9,10 +9,24 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { 
   Star, MapPin, Filter, Sparkles, Info, Heart, X, 
-  Calendar, ArrowLeft, Car, Bus, Check, Users
+  Calendar, ArrowLeft, Car, Bus, Check, Users, Loader2 
 } from "lucide-react";
+import api from "../lib/api";
 
-import { TRANSPORT, type TransportVendor, CART_KEY_TRANSPORT } from "@/data/transport";
+export interface TransportVendor {
+  id: string | number;
+  name: string;
+  type: string;
+  city: string;
+  priceFrom: number;
+  capacity: number;
+  img: string;
+  desc: string;
+  rating?: number;
+  features?: string[];
+}
+
+const CART_KEY_TRANSPORT = "wp_cart_transport";
 
 function numberFmt(n: number) {
   return new Intl.NumberFormat("pl-PL").format(n);
@@ -23,9 +37,11 @@ type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "miejsca" | "nazwa
 function TransportDetailsPage({ item, onBack, onBook }: { item: TransportVendor, onBack: () => void, onBook: () => void }) {
   const [form, setForm] = useState({ date: "", route: "" });
 
-  const features = (item as any).features || ["Kierowca w cenie", "Dekoracja pojazdu", "Klimatyzacja", "Dojazd do Pana Młodego", "Szampan dla Pary Młodej"];
+  const features = item.features && item.features.length > 0 
+    ? item.features 
+    : ["Kierowca w cenie", "Dekoracja pojazdu", "Klimatyzacja", "Dojazd do Pana Młodego", "Szampan dla Pary Młodej"];
     
-  const rating = useMemo(() => (item.id.charCodeAt(0) % 5) / 10 + 4.5, [item.id]);
+  const rating = item.rating || ((typeof item.id === 'number' ? item.id : item.name.length) % 5) / 10 + 4.5;
 
   return (
     <div className="min-h-screen bg-white animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -78,7 +94,7 @@ function TransportDetailsPage({ item, onBack, onBook }: { item: TransportVendor,
 
           <div>
             <h2 className="text-2xl font-semibold mb-4 text-stone-900">O pojeździe</h2>
-            <p className="text-lg text-stone-600 leading-relaxed">{item.desc}</p>
+            <p className="text-lg text-stone-600 leading-relaxed">{item.desc || "Brak opisu pojazdu."}</p>
             <p className="mt-4 text-stone-600">
               Gwarantujemy czystość, punktualność i profesjonalną obsługę kierowcy. 
               Pojazd jest zawsze przygotowany na najwyższym poziomie, aby uświetnić Wasz dzień.
@@ -154,9 +170,56 @@ export default function TransportPro() {
   const [sort, setSort] = useState<SortKey>("rekomendowane");
   const [onlyTop, setOnlyTop] = useState(false);
 
-  const [selectedId, setSelectedId] = useState<string | null>(null); 
-  const [viewDetailsId, setViewDetailsId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | number | null>(null); 
+  const [viewDetailsId, setViewDetailsId] = useState<string | number | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+
+  const [transportList, setTransportList] = useState<TransportVendor[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTransport = async () => {
+      setLoading(true);
+      try {
+        const response = await api.get("/transport/");
+        console.log("Dane transportu z API:", response.data);
+
+        const mapped: TransportVendor[] = response.data.map((t: any) => {
+            const pseudoId = typeof t.id === 'number' ? t.id : 1;
+            const generatedRating = 4.5 + ((pseudoId * 4) % 5) / 10;
+
+            let typeName = "Samochód";
+            const nameLower = t.name ? t.name.toLowerCase() : "";
+            
+            if (nameLower.includes("bus") || nameLower.includes("autokar")) typeName = "Autobus";
+            else if (nameLower.includes("limuzyna") || nameLower.includes("limo")) typeName = "Limuzyna";
+            else if (nameLower.includes("zabyt") || nameLower.includes("retro") || nameLower.includes("klasyk")) typeName = "Zabytek";
+            else if (nameLower.includes("sport") || nameLower.includes("mustang") || nameLower.includes("ferrari")) typeName = "Sportowe";
+
+            return {
+                id: t.id,
+                name: t.name,
+                type: typeName,
+                city: t.city || "Cała Polska",
+                priceFrom: Number(t.pricefrom) || Number(t.price) || 1000,
+                capacity: Number(t.capacity) || 4,
+                img: t.imageurl || "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?q=80&w=1200&auto=format&fit=crop",
+                desc: t.description || "Luksusowy transport na Twój ślub.",
+                rating: generatedRating,
+                features: []
+            };
+        });
+
+        setTransportList(mapped);
+      } catch (error) {
+        console.error("Błąd pobierania transportu:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTransport();
+  }, []);
 
   const [shortlist, setShortlist] = useState<string[]>(() => {
     try {
@@ -165,27 +228,27 @@ export default function TransportPro() {
   });
 
   const [minPrice, maxPrice] = useMemo(() => {
-     if (TRANSPORT.length === 0) return [0, 5000];
-     const prices = TRANSPORT.map(t => t.priceFrom);
+     if (transportList.length === 0) return [0, 5000];
+     const prices = transportList.map(t => t.priceFrom);
      return [Math.min(...prices), Math.max(...prices)];
-  }, []);
+  }, [transportList]);
 
-  useEffect(() => { setPriceRange([minPrice, maxPrice]) }, [minPrice, maxPrice]);
+  useEffect(() => { 
+      if(transportList.length > 0) setPriceRange([minPrice, maxPrice]) 
+  }, [minPrice, maxPrice, transportList.length]);
 
-  const types = useMemo(() => ["Wszystkie", ...Array.from(new Set(TRANSPORT.map(t => t.type)))], []);
-  const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(TRANSPORT.map(t => t.city)))], []);
+  const types = useMemo(() => ["Wszystkie", ...Array.from(new Set(transportList.map(t => t.type)))], [transportList]);
+  const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(transportList.map(t => t.city)))], [transportList]);
 
   const filtered = useMemo(() => {
-    const items = TRANSPORT.filter((t) => {
-      const rating = (t.id.charCodeAt(0) % 5) / 10 + 4.5;
-      
+    const items = transportList.filter((t) => {
       const hay = `${t.name} ${t.city} ${t.type} ${t.desc}`.toLowerCase();
       const matchesText = q ? hay.includes(q.toLowerCase()) : true;
       const matchesCity = city === "Wszystkie" ? true : t.city === city;
       const matchesType = vType === "Wszystkie" ? true : t.type === vType;
       const matchesPrice = t.priceFrom >= priceRange[0] && t.priceFrom <= priceRange[1];
       const matchesSeats = minSeats > 0 ? (t.capacity ?? 0) >= minSeats : true;
-      const matchesTop = !onlyTop || rating >= 4.7;
+      const matchesTop = !onlyTop || (t.rating || 0) >= 4.7;
 
       return matchesText && matchesCity && matchesType && matchesPrice && matchesSeats && matchesTop;
     });
@@ -197,16 +260,18 @@ export default function TransportPro() {
       case "nazwa": items.sort((a, b) => a.name.localeCompare(b.name, "pl")); break;
     }
     return items;
-  }, [q, city, vType, priceRange, minSeats, sort, onlyTop]);
+  }, [transportList, q, city, vType, priceRange, minSeats, sort, onlyTop]);
 
   useEffect(() => { localStorage.setItem("wp_transport_shortlist", JSON.stringify(shortlist)); }, [shortlist]);
-  const toggleShortlist = (e: React.MouseEvent, id: string) => {
+  
+  const toggleShortlist = (e: React.MouseEvent, id: string | number) => {
     e.stopPropagation();
-    setShortlist((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+    const idStr = String(id);
+    setShortlist((s) => (s.includes(idStr) ? s.filter((x) => x !== idStr) : [...s, idStr]));
   };
 
-  const selectedItem = useMemo(() => TRANSPORT.find(t => t.id === selectedId), [selectedId]);
-  const detailsItem = useMemo(() => TRANSPORT.find(t => t.id === viewDetailsId), [viewDetailsId]);
+  const selectedItem = useMemo(() => transportList.find(t => t.id === selectedId), [selectedId, transportList]);
+  const detailsItem = useMemo(() => transportList.find(t => t.id === viewDetailsId), [viewDetailsId, transportList]);
   const [bookingForm, setBookingForm] = useState({ date: "", notes: "" });
 
   if (viewDetailsId && detailsItem) {
@@ -217,7 +282,7 @@ export default function TransportPro() {
            onBack={() => setViewDetailsId(null)} 
            onBook={() => setSelectedId(detailsItem.id)}
         />
-        {selectedId && <BookingSheet selectedItem={TRANSPORT.find(t => t.id === selectedId)} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
+        {selectedId && <BookingSheet selectedItem={selectedItem} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
       </>
     )
   }
@@ -239,8 +304,8 @@ export default function TransportPro() {
             </p>
           </div>
           <div className="flex gap-4">
-             <StatCard label="Pojazdów" value={String(TRANSPORT.length)} />
-             <StatCard label="Śr. Cena" value="1 200" />
+             <StatCard label="Pojazdów" value={String(transportList.length)} />
+             <StatCard label="Śr. Cena" value={transportList.length > 0 ? numberFmt(Math.round(transportList.reduce((acc, curr) => acc + curr.priceFrom, 0) / transportList.length)) : "-"} />
           </div>
         </header>
 
@@ -276,10 +341,6 @@ export default function TransportPro() {
                         </SelectContent>
                       </Select>
                    </div>
-                   <div className="space-y-2">
-                      <label className="text-sm font-medium text-stone-700">Min. liczba miejsc: {minSeats}</label>
-                      <Slider value={[minSeats]} min={0} max={100} step={1} onValueChange={([v])=>setMinSeats(v)} className="py-2" />
-                   </div>
                    <div className="space-y-3">
                       <div className="flex justify-between text-sm">
                         <span className="text-stone-600">Cena od</span>
@@ -301,6 +362,7 @@ export default function TransportPro() {
                       </Select>
                    </div>
                 </div>
+
                 <SheetFooter className="p-4 border-t border-stone-200">
                     <Button onClick={() => setMobileFiltersOpen(false)} className="w-full h-12 rounded-xl bg-stone-900 text-white hover:bg-stone-800">Pokaż {filtered.length} wyników</Button>
                 </SheetFooter>
@@ -377,7 +439,12 @@ export default function TransportPro() {
           </aside>
 
           <section className="lg:col-span-9">
-             {filtered.length === 0 ? (
+             {loading ? (
+                 <div className="flex h-64 flex-col items-center justify-center">
+                     <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-4" />
+                     <p className="text-stone-500">Odpalam silniki...</p>
+                 </div>
+             ) : filtered.length === 0 ? (
                <div className="flex h-64 flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white text-center">
                   <div className="rounded-full bg-stone-100 p-4"><Car className="h-6 w-6 text-stone-400" /></div>
                   <h3 className="mt-4 text-lg font-semibold text-stone-900">Brak wyników</h3>
@@ -386,9 +453,7 @@ export default function TransportPro() {
              ) : (
                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                  {filtered.map((item) => {
-                   const rating = (item.id.charCodeAt(0) % 5) / 10 + 4.5;
                    const TypeIcon = item.type.toLowerCase().includes("bus") ? Bus : Car;
-
                    return (
                    <Card key={item.id} className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border-0 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                       <div className="relative aspect-[4/3] w-full overflow-hidden">
@@ -396,21 +461,14 @@ export default function TransportPro() {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-60" />
                         
                         <div className="absolute top-3 right-3 z-10">
-                          <button 
-                             onClick={(e)=>toggleShortlist(e, item.id)} 
-                             className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-300 ${
-                               shortlist.includes(item.id) 
-                               ? "bg-white text-rose-500 shadow-lg scale-110" 
-                               : "bg-black/20 text-white backdrop-blur-sm hover:bg-white hover:text-rose-500"
-                             }`}
-                          >
-                            <Heart className={`h-5 w-5 ${shortlist.includes(item.id) ? "fill-current" : ""}`} />
+                          <button onClick={(e)=>toggleShortlist(e, item.id)} className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-300 ${shortlist.includes(String(item.id)) ? "bg-white text-rose-500 shadow-lg scale-110" : "bg-black/20 text-white backdrop-blur-sm hover:bg-white hover:text-rose-500"}`}>
+                            <Heart className={`h-5 w-5 ${shortlist.includes(String(item.id)) ? "fill-current" : ""}`} />
                           </button>
                         </div>
                         
-                        {rating >= 4.8 && (
+                        {item.rating && item.rating >= 4.8 && (
                            <div className="absolute top-3 left-3 z-10">
-                              <Badge className="bg-white/90 text-stone-800 backdrop-blur-sm hover:bg-white px-2"><Star className="mr-1 h-3 w-3 fill-yellow-400 text-yellow-400" /> {rating.toFixed(1)}</Badge>
+                              <Badge className="bg-white/90 text-stone-800 backdrop-blur-sm hover:bg-white px-2"><Star className="mr-1 h-3 w-3 fill-yellow-400 text-yellow-400" /> {item.rating.toFixed(1)}</Badge>
                            </div>
                         )}
 
@@ -438,8 +496,8 @@ export default function TransportPro() {
                       </CardContent>
 
                       <CardFooter className="p-5 pt-0 gap-3">
-                         <Button onClick={() => setViewDetailsId(item.id)} variant="outline" className="flex-1 rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50">Szczegóły</Button>
-                         <Button onClick={() => setSelectedId(item.id)} className="flex-1 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg shadow-stone-900/20">Zapytaj</Button>
+                          <Button onClick={() => setViewDetailsId(item.id)} variant="outline" className="flex-1 rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50">Szczegóły</Button>
+                          <Button onClick={() => setSelectedId(item.id)} className="flex-1 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg shadow-stone-900/20">Zapytaj</Button>
                       </CardFooter>
                    </Card>
                  )})}
@@ -463,14 +521,14 @@ function StatCard({ label, value }: { label: string, value: string }) {
   )
 }
 
-function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }) {
+function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }: any) {
     if (!selectedItem) return null;
     
     const handleAddToCart = () => {
         try {
             const raw = localStorage.getItem(CART_KEY_TRANSPORT);
             const prev: TransportVendor[] = raw ? JSON.parse(raw) : [];
-            const exists = prev.some((p) => p.id === selectedItem.id);
+            const exists = prev.some((p) => String(p.id) === String(selectedItem.id));
             if (!exists) {
                 const next = [...prev, selectedItem];
                 localStorage.setItem(CART_KEY_TRANSPORT, JSON.stringify(next));
@@ -532,6 +590,6 @@ function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }) {
                </Button>
            </SheetFooter>
         </SheetContent>
-      </Sheet>
+        </Sheet>
     )
 }

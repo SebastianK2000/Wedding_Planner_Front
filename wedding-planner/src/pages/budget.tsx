@@ -15,63 +15,86 @@ import {
   X,
   AlertCircle,
   Banknote,
-  CheckCircle2
+  CheckCircle2,
+  Loader2
 } from "lucide-react";
+import api from "../lib/api";
 
-type Category =
-  | "Sala" | "Muzyka" | "Foto/Video" | "Florystyka" | "Transport"
-  | "Papeteria" | "Dekoracje" | "Suknia/Garnitur" | "Biżuteria"
-  | "Tort/Catering" | "Inne";
-
-type BudgetItem = {
-  id: string;
+interface ApiBudgetCategory {
+  id: number;
   name: string;
-  category: Category;
+}
+
+interface ApiBudgetItem {
+  id: number;
+  categoryid: number;
+  name: string;
+  plannedamount: string | number;
+  actualamount: string | number;
+  ispaid: boolean;
+  notes: string;
+}
+
+type BudgetItemView = {
+  id: number;
+  name: string;
+  categoryName: string;
+  categoryId: number;
   planned: number;
   actual: number;
   paid: boolean;
   notes?: string;
 };
 
-const CATEGORIES: Category[] = [
-  "Sala", "Muzyka", "Foto/Video", "Florystyka", "Transport",
-  "Papeteria", "Dekoracje", "Suknia/Garnitur", "Biżuteria",
-  "Tort/Catering", "Inne",
-];
-
-const LS_KEY = "wp_budget";
-
 const PLN = (n: number) =>
   new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(n) + " zł";
 
-function uid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
-
-const seed: BudgetItem[] = [
-  { id: "b1", name: "Sala weselna", category: "Sala", planned: 30000, actual: 0, paid: false },
-  { id: "b2", name: "Muzyka – DJ/Zespół", category: "Muzyka", planned: 6000, actual: 0, paid: false },
-  { id: "b3", name: "Fotograf", category: "Foto/Video", planned: 5000, actual: 0, paid: false },
-];
-
 export default function Budget() {
-  const [items, setItems] = useState<BudgetItem[]>(() => {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      return raw ? (JSON.parse(raw) as BudgetItem[]) : seed;
-    } catch {
-      return seed;
-    }
-  });
+  const [items, setItems] = useState<BudgetItemView[]>([]);
+  const [categories, setCategories] = useState<ApiBudgetCategory[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const [editing, setEditing] = useState<BudgetItem | null>(null);
+  const [editing, setEditing] = useState<BudgetItemView | null>(null);
   const [query, setQuery] = useState("");
-  const [cat, setCat] = useState<Category | "wszystkie">("wszystkie");
+  const [catFilter, setCatFilter] = useState<string | "wszystkie">("wszystkie");
   const [toast, setToast] = useState<string | null>(null);
 
+  const fetchData = async () => {
+    try {
+      const [itemsRes, catsRes] = await Promise.all([
+        api.get("/budget/"),
+        api.get("/budget-categories/"),
+      ]);
+
+      const fetchedCategories: ApiBudgetCategory[] = catsRes.data;
+      setCategories(fetchedCategories);
+
+      const mappedItems: BudgetItemView[] = itemsRes.data.map((i: ApiBudgetItem) => {
+        const cat = fetchedCategories.find(c => c.id === i.categoryid);
+        return {
+          id: i.id,
+          name: i.name,
+          categoryId: i.categoryid,
+          categoryName: cat ? cat.name : "Inne",
+          planned: Number(i.plannedamount),
+          actual: Number(i.actualamount),
+          paid: i.ispaid,
+          notes: i.notes || ""
+        };
+      });
+
+      setItems(mappedItems);
+    } catch (error) {
+      console.error("Błąd pobierania budżetu:", error);
+      setToast("Błąd połączenia z serwerem");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    localStorage.setItem(LS_KEY, JSON.stringify(items));
-  }, [items]);
+    fetchData();
+  }, []);
 
   useEffect(() => {
     if (toast) {
@@ -97,20 +120,24 @@ export default function Budget() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return items.filter((i) => {
-      const okCat = cat === "wszystkie" ? true : i.category === cat;
+      const okCat = catFilter === "wszystkie" ? true : i.categoryName === catFilter;
       const okQ =
         q.length === 0 ||
         i.name.toLowerCase().includes(q) ||
-        i.category.toLowerCase().includes(q);
+        i.categoryName.toLowerCase().includes(q);
       return okCat && okQ;
     });
-  }, [items, query, cat]);
+  }, [items, query, catFilter]);
 
   function addEmpty() {
+    const defaultCatId = categories.length > 0 ? categories[0].id : 0;
+    const defaultCatName = categories.length > 0 ? categories[0].name : "Inne";
+    
     setEditing({
-      id: uid(),
+      id: 0,
       name: "",
-      category: "Inne",
+      categoryName: defaultCatName,
+      categoryId: defaultCatId,
       planned: 0,
       actual: 0,
       paid: false,
@@ -118,29 +145,78 @@ export default function Budget() {
     });
   }
 
-  function save(item: BudgetItem) {
-    setItems((prev) => {
-      const exists = prev.some((p) => p.id === item.id);
-      return exists ? prev.map((p) => (p.id === item.id ? item : p)) : [item, ...prev];
-    });
-    setEditing(null);
-    setToast("Zapisano pozycję");
+  async function save(item: BudgetItemView) {
+    const payload = {
+        categoryid: item.categoryId,
+        name: item.name,
+        plannedamount: item.planned,
+        actualamount: item.actual,
+        ispaid: item.paid,
+        notes: item.notes
+    };
+
+    try {
+        if (item.id > 0) {
+            await api.put(`/budget/${item.id}/`, payload);
+        } else {
+            await api.post("/budget/", payload);
+        }
+        setEditing(null);
+        setToast("Zapisano pozycję");
+        fetchData();
+    } catch (e) {
+        console.error(e);
+        alert("Wystąpił błąd podczas zapisu.");
+    }
   }
 
-  function remove(id: string) {
+  async function remove(id: number) {
     if(!confirm("Czy na pewno chcesz usunąć ten wydatek?")) return;
+    
     setItems((prev) => prev.filter((p) => p.id !== id));
     setToast("Usunięto pozycję");
+
+    try {
+        await api.delete(`/budget/${id}/`);
+    } catch (e) {
+        console.error(e);
+        fetchData();
+    }
   }
 
-  function duplicate(item: BudgetItem) {
-    const copy: BudgetItem = { ...item, id: uid(), name: item.name + " (kopia)", paid: false };
-    setItems((prev) => [copy, ...prev]);
-    setToast("Skopiowano pozycję");
+  async function duplicate(item: BudgetItemView) {
+    const payload = {
+        categoryid: item.categoryId,
+        name: item.name + " (kopia)",
+        plannedamount: item.planned,
+        actualamount: item.actual,
+        ispaid: false,
+        notes: item.notes
+    };
+
+    try {
+        await api.post("/budget/", payload);
+        setToast("Skopiowano pozycję");
+        fetchData();
+    } catch (e) {
+        console.error(e);
+        setToast("Błąd kopiowania");
+    }
   }
 
-  function togglePaid(id: string) {
-    setItems((prev) => prev.map((p) => (p.id === id ? { ...p, paid: !p.paid } : p)));
+  async function togglePaid(id: number) {
+    const item = items.find(i => i.id === id);
+    if (!item) return;
+
+    const newState = !item.paid;
+    setItems((prev) => prev.map((p) => (p.id === id ? { ...p, paid: newState } : p)));
+
+    try {
+        await api.patch(`/budget/${id}/`, { ispaid: newState });
+    } catch (e) {
+        console.error(e);
+        fetchData();
+    }
   }
 
   function exportPDF() {
@@ -159,7 +235,7 @@ export default function Budget() {
       const diff = i.actual - i.planned;
       return [
         i.name,
-        i.category,
+        i.categoryName,
         PLN(i.planned),
         PLN(i.actual),
         `${diff > 0 ? "+" : ""}${PLN(diff)}`,
@@ -181,8 +257,17 @@ export default function Budget() {
   const btnPrimary = "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition-colors shadow-md shadow-accent-500/20";
   const btnSecondary = "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium border border-brand-200 bg-white text-stone-700 hover:bg-brand-50 transition-colors";
 
+  if (loading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-screen bg-stone-50/50">
+            <Loader2 className="h-10 w-10 animate-spin text-accent-500 mb-4" />
+            <p className="text-stone-500">Wczytuję budżet...</p>
+        </div>
+      );
+  }
+
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto p-4">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-stone-900">Budżet</h2>
@@ -235,9 +320,9 @@ export default function Budget() {
         <div className="h-8 w-px bg-stone-200 hidden sm:block"></div>
         <div className="w-full sm:w-auto px-2 sm:px-0 pb-2 sm:pb-0">
            <Select
-              value={cat}
-              onChange={(v) => setCat(v as Category | "wszystkie")}
-              options={[{ value: "wszystkie", label: "Kategoria: Wszystkie" }, ...CATEGORIES.map((c) => ({ value: c, label: c }))]}
+              value={catFilter}
+              onChange={(v) => setCatFilter(v)}
+              options={[{ value: "wszystkie", label: "Kategoria: Wszystkie" }, ...categories.map(c => ({ value: c.name, label: c.name }))]}
               className="bg-white min-w-[200px]"
             />
         </div>
@@ -267,19 +352,19 @@ export default function Budget() {
                     <td className="py-3 px-6 align-top">
                       <div className="font-medium text-stone-900">{i.name}</div>
                       <div className="text-xs text-stone-500 mt-0.5 flex items-center gap-1">
-                         <span className="bg-stone-100 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide">{i.category}</span>
-                         {i.notes && <span className="truncate max-w-[150px] italic opacity-70">— {i.notes}</span>}
+                          <span className="bg-stone-100 px-1.5 py-0.5 rounded text-[10px] uppercase tracking-wide">{i.categoryName}</span>
+                          {i.notes && <span className="truncate max-w-[150px] italic opacity-70">— {i.notes}</span>}
                       </div>
                     </td>
                     <td className="py-3 px-4 text-stone-600 font-medium align-middle">{PLN(i.planned)}</td>
                     <td className="py-3 px-4 font-bold text-stone-800 align-middle">{PLN(i.actual)}</td>
                     <td className="py-3 px-4 align-middle">
-                       <div className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg ${
-                          isOverBudget ? "text-rose-700 bg-rose-50" : isSaving ? "text-green-700 bg-green-50" : "text-stone-500 bg-stone-100"
-                       }`}>
-                          {isOverBudget ? <TrendingUp className="h-3 w-3" /> : isSaving ? <TrendingDown className="h-3 w-3" /> : null}
-                          {diff === 0 ? "—" : (diff > 0 ? "+" : "") + PLN(Math.abs(diff))}
-                       </div>
+                        <div className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg ${
+                           isOverBudget ? "text-rose-700 bg-rose-50" : isSaving ? "text-green-700 bg-green-50" : "text-stone-500 bg-stone-100"
+                        }`}>
+                           {isOverBudget ? <TrendingUp className="h-3 w-3" /> : isSaving ? <TrendingDown className="h-3 w-3" /> : null}
+                           {diff === 0 ? "—" : (diff > 0 ? "+" : "") + PLN(Math.abs(diff))}
+                        </div>
                     </td>
                     <td className="py-3 px-4 text-center align-middle">
                       <button
@@ -307,10 +392,10 @@ export default function Budget() {
                 <tr>
                   <td colSpan={6} className="py-16 text-center text-stone-500">
                     <div className="flex flex-col items-center gap-2">
-                       <div className="bg-stone-50 p-3 rounded-full">
-                          <Search className="h-6 w-6 text-stone-300" />
-                       </div>
-                       <p>Brak pozycji spełniających kryteria.</p>
+                        <div className="bg-stone-50 p-3 rounded-full">
+                           <Search className="h-6 w-6 text-stone-300" />
+                        </div>
+                        <p>Brak pozycji spełniających kryteria.</p>
                     </div>
                   </td>
                 </tr>
@@ -328,7 +413,7 @@ export default function Budget() {
                 <div className="flex justify-between items-start mb-3">
                    <div>
                       <div className="font-semibold text-stone-900">{i.name}</div>
-                      <div className="text-xs text-stone-500 uppercase tracking-wide mt-1">{i.category}</div>
+                      <div className="text-xs text-stone-500 uppercase tracking-wide mt-1">{i.categoryName}</div>
                    </div>
                    <button
                         onClick={() => togglePaid(i.id)}
@@ -371,11 +456,16 @@ export default function Budget() {
           <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
               <div className="text-lg font-bold text-stone-800">
-                {items.some((x) => x.id === editing.id) ? "Edytuj wydatek" : "Nowy wydatek"}
+                {editing.id > 0 ? "Edytuj wydatek" : "Nowy wydatek"}
               </div>
               <button onClick={() => setEditing(null)} className="text-stone-400 hover:text-stone-600">Anuluj</button>
             </div>
-            <Editor value={editing} onCancel={() => setEditing(null)} onSave={save} />
+            <Editor 
+                value={editing} 
+                categories={categories}
+                onCancel={() => setEditing(null)} 
+                onSave={save} 
+            />
           </div>
         </div>
       )}
@@ -436,9 +526,7 @@ function Select({
         ))}
       </select>
       <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-stone-400">
-         <svg width="10" height="6" viewBox="0 0 10 6" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-         </svg>
+         <MoreHorizontal className="h-4 w-4" />
       </div>
     </div>
   );
@@ -456,12 +544,27 @@ function ActionButton({ icon, onClick, label, danger }: { icon: React.ReactNode,
    )
 }
 
-function Editor({ value, onSave, onCancel }: { value: BudgetItem; onSave: (v: BudgetItem) => void; onCancel: () => void }) {
-  const [form, setForm] = useState<BudgetItem>(value);
+function Editor({ 
+    value, 
+    onSave, 
+    onCancel,
+    categories 
+}: { 
+    value: BudgetItemView; 
+    onSave: (v: BudgetItemView) => void; 
+    onCancel: () => void;
+    categories: ApiBudgetCategory[];
+}) {
+  const [form, setForm] = useState<BudgetItemView>(value);
   const [error, setError] = useState<string | null>(null);
 
-  function update<K extends keyof BudgetItem>(key: K, val: BudgetItem[K]) {
+  function update<K extends keyof BudgetItemView>(key: K, val: BudgetItemView[K]) {
     setForm((f) => ({ ...f, [key]: val }));
+  }
+
+  function handleCategoryChange(id: number) {
+      const cat = categories.find(c => c.id === id);
+      setForm(f => ({ ...f, categoryId: id, categoryName: cat ? cat.name : "" }));
   }
 
   function submit(e: React.FormEvent) {
@@ -490,16 +593,16 @@ function Editor({ value, onSave, onCancel }: { value: BudgetItem; onSave: (v: Bu
             <label className="block text-xs font-medium text-stone-500 mb-1.5">Kategoria</label>
             <div className="relative">
                 <select
-                value={form.category}
-                onChange={(e) => update("category", e.target.value as Category)}
+                value={form.categoryId}
+                onChange={(e) => handleCategoryChange(Number(e.target.value))}
                 className="w-full appearance-none rounded-xl border border-stone-200 px-4 py-3 bg-white text-stone-700 outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                 >
-                {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
-                   <MoreHorizontal className="h-4 w-4" />
+                    <MoreHorizontal className="h-4 w-4" />
                 </div>
             </div>
         </div>

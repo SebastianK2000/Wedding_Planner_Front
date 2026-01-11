@@ -12,7 +12,7 @@ import {
   Menu,
   X
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const navItems = [
   { to: "/admin", label: "Pulpit", icon: <LayoutDashboard size={20} />, end: true },
@@ -29,8 +29,28 @@ export default function AdminLayout() {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const userStr = localStorage.getItem("user");
+    if (!userStr) {
+      navigate("/login");
+    } else {
+      try {
+        const user = JSON.parse(userStr);
+        if (user.role && user.role !== "Admin") {
+           navigate("/"); 
+        }
+      } catch (e) {
+        localStorage.removeItem("user");
+        navigate("/login");
+      }
+    }
+  }, [navigate]);
+
   const handleLogout = () => {
-    navigate("/");
+    localStorage.removeItem("user");
+    localStorage.removeItem("access");
+    localStorage.removeItem("refresh");
+    navigate("/login");
   };
 
   return (
@@ -98,6 +118,14 @@ export default function AdminLayout() {
                     {item.icon} {item.label}
                   </NavLink>
                 ))}
+                
+                <button 
+                    onClick={handleLogout}
+                    className="flex items-center gap-3 px-3 py-3 w-full text-left text-sm font-medium text-rose-600 hover:bg-rose-50 rounded-xl transition-colors mt-4 border-t border-stone-100"
+                >
+                    <LogOut size={20} />
+                    Wyloguj się
+                </button>
               </nav>
            </aside>
         </div>

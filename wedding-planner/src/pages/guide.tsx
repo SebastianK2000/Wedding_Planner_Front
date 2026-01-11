@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { 
   Target, 
@@ -9,10 +10,68 @@ import {
   Mail, 
   Palette, 
   CheckSquare, 
-  ArrowRight 
+  ArrowRight,
+  Loader2
 } from "lucide-react";
+import api from "../lib/api";
+
+interface ApiFaqCategory {
+  id: number;
+  name: string;
+  displayorder: number;
+}
+
+interface ApiFaqItem {
+  id: number;
+  categoryid: number;
+  question: string;
+  answer: string;
+  isvisible: boolean;
+}
+
+interface FaqSection {
+  categoryName: string;
+  items: ApiFaqItem[];
+}
 
 export default function Guide() {
+  const [faqSections, setFaqSections] = useState<FaqSection[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [catsRes, itemsRes] = await Promise.all([
+          api.get("/faq-categories/"),
+          api.get("/faq-items/")
+        ]);
+
+        const categories: ApiFaqCategory[] = catsRes.data.sort((a: ApiFaqCategory, b: ApiFaqCategory) => a.displayorder - b.displayorder);
+        const items: ApiFaqItem[] = itemsRes.data.filter((i: ApiFaqItem) => i.isvisible);
+
+        const sections = categories.map(cat => ({
+          categoryName: cat.name,
+          items: items.filter(i => i.categoryid === cat.id)
+        })).filter(s => s.items.length > 0);
+
+        setFaqSections(sections);
+      } catch (error) {
+        console.error("Błąd pobierania FAQ:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const defaultFaqs = [
+    { title: "Sala weselna", text: "Co zawiera cena? Do której godziny trwa zabawa? Czy jest agregat prądotwórczy?" },
+    { title: "Muzyka", text: "Ile trwają bloki muzyczne? Czy zapewniacie oświetlenie? Jakie macie wymagania techniczne?" },
+    { title: "Fotograf", text: "Jaki jest czas oczekiwania na zdjęcia? Czy masz zapasowy sprzęt? Co w przypadku choroby?" },
+    { title: "Transport", text: "Czy kierowca zna trasę? Czy busy mają klimatyzację? Jak rozliczane są nadgodziny?" }
+  ];
+
   const baseCard = "bg-white rounded-3xl shadow-sm border border-stone-200 p-6 md:p-8 transition-all hover:shadow-md";
 
   const btnPrimary =
@@ -34,6 +93,15 @@ export default function Guide() {
     { id: "stylistyka", label: "8. Stylistyka", icon: <Palette size={16} /> },
     { id: "checklisty", label: "9. Checklisty", icon: <CheckSquare size={16} /> },
   ];
+
+  if (loading) {
+     return (
+        <div className="flex flex-col items-center justify-center h-screen bg-stone-50/50">
+            <Loader2 className="h-10 w-10 animate-spin text-accent-500 mb-4" />
+            <p className="text-stone-500">Wczytuję przewodniki...</p>
+        </div>
+     );
+  }
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 grid grid-cols-12 gap-8">
@@ -221,17 +289,25 @@ export default function Guide() {
           </div>
           
           <div className="grid sm:grid-cols-2 gap-4">
-            {[
-              ["Sala weselna", "Co zawiera cena? Do której godziny trwa zabawa? Czy jest agregat prądotwórczy? Jakie są opłaty za korkowe/tortowe?"],
-              ["Muzyka", "Ile trwają bloki muzyczne a ile przerwy? Czy zapewniacie własne oświetlenie? Jakie macie wymagania techniczne?"],
-              ["Fotograf", "Jaki jest czas oczekiwania na zdjęcia? Czy macie zapasowy sprzęt? Co w przypadku choroby w dniu ślubu?"],
-              ["Transport", "Czy kierowca zna trasę? Czy busy mają klimatyzację? Jak wygląda kwestia nadgodzin?"],
-            ].map(([head, text], i) => (
-              <div key={i} className="rounded-2xl bg-stone-50 p-5 border border-stone-100 hover:border-stone-200 transition-colors">
-                <h4 className="font-bold text-stone-800 mb-2">{head}</h4>
-                <p className="text-sm text-stone-600 leading-relaxed">{text}</p>
-              </div>
-            ))}
+            {faqSections.length > 0 ? (
+                faqSections.map((section, i) => (
+                  <div key={i} className="rounded-2xl bg-stone-50 p-5 border border-stone-100 hover:border-stone-200 transition-colors">
+                    <h4 className="font-bold text-stone-800 mb-2">{section.categoryName}</h4>
+                    <ul className="list-disc pl-4 text-sm text-stone-600 space-y-1">
+                        {section.items.map(item => (
+                            <li key={item.id}>{item.question}</li>
+                        ))}
+                    </ul>
+                  </div>
+                ))
+            ) : (
+                defaultFaqs.map((item, i) => (
+                  <div key={i} className="rounded-2xl bg-stone-50 p-5 border border-stone-100 hover:border-stone-200 transition-colors">
+                    <h4 className="font-bold text-stone-800 mb-2">{item.title}</h4>
+                    <p className="text-sm text-stone-600 leading-relaxed">{item.text}</p>
+                  </div>
+                ))
+            )}
           </div>
         </section>
 

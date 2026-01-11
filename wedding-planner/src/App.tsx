@@ -15,6 +15,7 @@ import Footer from "@/components/footer";
 import FAQPage from "@/pages/faq";
 import Contact from "@/pages/contact";
 import Privacy from "@/pages/privact";
+import Cart from "./pages/cart";
 
 import Login from "@/auth/login";
 import Register from "@/auth/register";
@@ -63,6 +64,7 @@ export default function App() {
 
       <Route path="/login" element={<Login />} />
       <Route path="/rejestracja" element={<Register />} />
+      <Route path="/koszyk" element={<PublicLayout><Cart /></PublicLayout>} />
 
       <Route path="/admin" element={<AdminLayout />}>
          <Route index element={<AdminDashboard />} />

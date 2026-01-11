@@ -1,8 +1,10 @@
+import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
   Facebook, Instagram, Mail, Phone, MapPin,
-  Github, Heart, ArrowRight
+  Github, Heart, ArrowRight, Linkedin, Twitter, Youtube, Globe
 } from "lucide-react";
+import api from "../lib/api";
 
 const primary = [
   { to: "/", label: "Home" },
@@ -26,6 +28,24 @@ const resources = [
   { to: "/kontakt", label: "Kontakt" },
 ];
 
+const iconMap: Record<string, any> = {
+    Facebook, Instagram, Github, Linkedin, Twitter, Youtube,
+    default: Globe
+};
+
+interface ApiCompanyInfo {
+    email: string;
+    phone: string;
+    address: string;
+}
+
+interface ApiSocialLink {
+    id: number;
+    platformname: string;
+    url: string;
+    iconname: string;
+}
+
 function Logo() {
   return (
     <NavLink to="/" className="inline-flex items-center gap-2 group">
@@ -41,25 +61,50 @@ function Logo() {
 }
 
 export default function Footer() {
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const [companyInfo, setCompanyInfo] = useState<ApiCompanyInfo | null>(null);
+  const [socialLinks, setSocialLinks] = useState<ApiSocialLink[]>([]);
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
+
+  useEffect(() => {
+      api.get("/company-info/")
+        .then(res => {
+            if (res.data && res.data.length > 0) setCompanyInfo(res.data[0]);
+        })
+        .catch(err => console.error("Błąd CompanyInfo", err));
+
+      api.get("/social-links/")
+        .then(res => setSocialLinks(res.data))
+        .catch(err => console.error("Błąd SocialLinks", err));
+  }, []);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const email = String(fd.get("email") || "").trim();
+    
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       alert("Podaj poprawny adres e-mail.");
       return;
     }
+
     try {
-      const LS_KEY = "wp_newsletter";
-      const raw = localStorage.getItem(LS_KEY);
-      const prev: string[] = raw ? JSON.parse(raw) : [];
-      if (!prev.includes(email)) {
-        localStorage.setItem(LS_KEY, JSON.stringify([email, ...prev]));
-      }
+      setNewsletterLoading(true);
+      await api.post("/newsletter-subscribers/", {
+          email: email,
+          subscribedat: new Date().toISOString(),
+          isactive: true
+      });
+      alert("Dziękujemy! Twój e-mail został dodany do newslettera.");
       e.currentTarget.reset();
-      alert("Dziękujemy! Dodano do newslettera (mock).");
-    } catch {
-      alert("Ups, nie udało się zapisać.");
+    } catch (error: any) {
+      console.error(error);
+      if (error.response?.status === 400) {
+          alert("Ten adres e-mail jest już zapisany.");
+      } else {
+          alert("Wystąpił błąd podczas zapisu. Spróbuj ponownie później.");
+      }
+    } finally {
+      setNewsletterLoading(false);
     }
   }
 
@@ -78,9 +123,25 @@ export default function Footer() {
             </p>
 
             <div className="flex items-center gap-3">
-              <SocialLink href="https://github.com/" icon={<Github size={18} />} label="GitHub" />
-              <SocialLink href="#!" icon={<Facebook size={18} />} label="Facebook" />
-              <SocialLink href="#!" icon={<Instagram size={18} />} label="Instagram" />
+              {socialLinks.length > 0 ? (
+                  socialLinks.map(link => {
+                      const IconComponent = iconMap[link.iconname] || iconMap.default;
+                      return (
+                          <SocialLink 
+                            key={link.id} 
+                            href={link.url} 
+                            icon={<IconComponent size={18} />} 
+                            label={link.platformname || "Social Media"} 
+                          />
+                      );
+                  })
+              ) : (
+                  <>
+                    <SocialLink href="#" icon={<Github size={18} />} label="GitHub" />
+                    <SocialLink href="#" icon={<Facebook size={18} />} label="Facebook" />
+                    <SocialLink href="#" icon={<Instagram size={18} />} label="Instagram" />
+                  </>
+              )}
             </div>
           </div>
 
@@ -132,32 +193,38 @@ export default function Footer() {
               <div className="relative flex-1">
                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-600" size={16} />
                  <input
-                    name="email"
-                    type="email"
-                    placeholder="Twój e-mail"
-                    className="w-full rounded-xl border border-stone-800 bg-stone-900 py-2.5 pl-9 pr-4 text-sm text-stone-200 placeholder:text-stone-600 focus:border-accent-600 focus:outline-none focus:ring-1 focus:ring-accent-600 transition-all"
+                   name="email"
+                   type="email"
+                   required
+                   placeholder="Twój e-mail"
+                   className="w-full rounded-xl border border-stone-800 bg-stone-900 py-2.5 pl-9 pr-4 text-sm text-stone-200 placeholder:text-stone-600 focus:border-accent-600 focus:outline-none focus:ring-1 focus:ring-accent-600 transition-all"
                  />
               </div>
               <button
-                className="rounded-xl bg-accent-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-accent-500 transition-colors shadow-lg shadow-accent-900/20 flex items-center justify-center gap-2"
+                className="rounded-xl bg-accent-600 px-5 py-2.5 text-sm font-bold text-white hover:bg-accent-500 transition-colors shadow-lg shadow-accent-900/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                 type="submit"
+                disabled={newsletterLoading}
               >
-                Zapisz <ArrowRight size={16} />
+                {newsletterLoading ? "Zapisywanie..." : <>Zapisz <ArrowRight size={16} /></>}
               </button>
             </form>
 
             <div className="mt-8 pt-8 border-t border-stone-900 space-y-3 text-sm text-stone-500">
               <div className="flex items-center gap-3 hover:text-stone-300 transition-colors">
                 <Mail size={16} className="text-accent-600" /> 
-                <span>kontakt@weddingplanner.app</span>
+                <a href={`mailto:${companyInfo?.email || "kontakt@weddingplanner.app"}`}>
+                    {companyInfo?.email || "kontakt@weddingplanner.app"}
+                </a>
               </div>
               <div className="flex items-center gap-3 hover:text-stone-300 transition-colors">
                 <Phone size={16} className="text-accent-600" /> 
-                <span>+48 600 000 000</span>
+                <a href={`tel:${companyInfo?.phone || "+48 600 000 000"}`}>
+                    {companyInfo?.phone || "+48 600 000 000"}
+                </a>
               </div>
               <div className="flex items-center gap-3 hover:text-stone-300 transition-colors">
                 <MapPin size={16} className="text-accent-600" /> 
-                <span>Kraków / Warszawa (zdalnie)</span>
+                <span>{companyInfo?.address || "Kraków / Warszawa (zdalnie)"}</span>
               </div>
             </div>
           </div>

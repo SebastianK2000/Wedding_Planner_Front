@@ -1,11 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink } from "react-router-dom";
-import { Mail, Phone, MapPin, Send, MessageSquare, Shield, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Mail, Phone, MapPin, Send, MessageSquare, Shield, CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import api from "../lib/api";
 
 type Form = {
   name: string;
@@ -15,6 +16,13 @@ type Form = {
   consent: boolean;
   website?: string;
 };
+
+interface CompanyInfo {
+  email: string;
+  phone: string;
+  address: string;
+  workinghours?: string;
+}
 
 const TOPICS = [
   { value: "pytanie", label: "Pytanie dotyczące funkcji" },
@@ -34,9 +42,21 @@ export default function Contact() {
     consent: false,
     website: "",
   });
+  
+  const [companyInfo, setCompanyInfo] = useState<CompanyInfo | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState<null | "ok" | "fail">(null);
+
+  useEffect(() => {
+    api.get("/company-info/")
+      .then(res => {
+        if (res.data && res.data.length > 0) {
+          setCompanyInfo(res.data[0]);
+        }
+      })
+      .catch(err => console.error("Błąd pobierania danych firmy:", err));
+  }, []);
 
   function set<K extends keyof Form>(key: K, value: Form[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -56,28 +76,29 @@ export default function Contact() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!validate()) return;
+    
+    setSubmitting(true);
+    
+    const payload = {
+        sendername: form.name,
+        senderemail: form.email,
+        topic: form.topic,
+        message: form.message,
+        sentat: new Date().toISOString(),
+        isread: false
+    };
+
     try {
-      setSubmitting(true);
-      const key = "wp_contact_inbox";
-      const raw = localStorage.getItem(key);
-      type InboxItem = Form & { id: string; date: string; status: string };
-      const prev: InboxItem[] = raw ? (JSON.parse(raw) as InboxItem[]) : [];
-      prev.unshift({
-        ...form,
-        id: crypto.randomUUID?.() || String(Date.now()),
-        date: new Date().toISOString(),
-        status: "new",
-      });
-      await new Promise(res => setTimeout(res, 750));
-      localStorage.setItem(key, JSON.stringify(prev));
+      await api.post("/contact-messages/", payload);
       setSent("ok");
       setForm({ name: "", email: "", topic: "pytanie", message: "", consent: false, website: "" });
       setErrors({});
-    } catch {
+    } catch (error) {
+      console.error("Błąd wysyłania wiadomości:", error);
       setSent("fail");
     } finally {
       setSubmitting(false);
-      setTimeout(() => setSent(null), 4000);
+      setTimeout(() => setSent(null), 5000);
     }
   }
 
@@ -100,151 +121,151 @@ export default function Contact() {
 
         <div className="bg-white rounded-3xl shadow-lg border border-stone-200/60 overflow-hidden grid lg:grid-cols-2">
            <div className="p-8 md:p-12 space-y-8">
-              <div>
-                <h2 className="text-2xl font-semibold text-stone-900 mb-2">Informacje kontaktowe</h2>
-                <p className="text-stone-500 leading-relaxed">
-                  Zanim napiszesz, sprawdź naszą bazę wiedzy. 
-                  Być może odpowiedź na Twoje pytanie już tam jest!
-                </p>
-              </div>
+             <div>
+               <h2 className="text-2xl font-semibold text-stone-900 mb-2">Informacje kontaktowe</h2>
+               <p className="text-stone-500 leading-relaxed">
+                 Zanim napiszesz, sprawdź naszą bazę wiedzy. 
+                 Być może odpowiedź na Twoje pytanie już tam jest!
+               </p>
+             </div>
 
-              <ul className="space-y-4 text-stone-700">
+             <ul className="space-y-4 text-stone-700">
+               <li className="flex items-center gap-4">
+                 <div className="flex-shrink-0 h-11 w-11 rounded-xl bg-stone-100 text-stone-600 flex items-center justify-center">
+                   <Mail size={20} />
+                 </div>
+                 <div>
+                   <span className="font-semibold">{companyInfo?.email || "kontakt@weddingplanner.app"}</span>
+                   <span className="block text-sm text-stone-500">Najlepszy sposób kontaktu</span>
+                 </div>
+               </li>
+               <li className="flex items-center gap-4">
+                 <div className="flex-shrink-0 h-11 w-11 rounded-xl bg-stone-100 text-stone-600 flex items-center justify-center">
+                   <Phone size={20} />
+                 </div>
+                 <div>
+                   <span className="font-semibold">{companyInfo?.phone || "+48 000 000 000"}</span>
+                   <span className="block text-sm text-stone-500">{companyInfo?.workinghours || "Pn–Pt 9:00–16:00"}</span>
+                 </div>
+               </li>
                 <li className="flex items-center gap-4">
-                  <div className="flex-shrink-0 h-11 w-11 rounded-xl bg-stone-100 text-stone-600 flex items-center justify-center">
-                    <Mail size={20} />
-                  </div>
-                  <div>
-                    <span className="font-semibold">kontakt@weddingplanner.app</span>
-                    <span className="block text-sm text-stone-500">Najlepszy sposób kontaktu</span>
-                  </div>
-                </li>
-                <li className="flex items-center gap-4">
-                  <div className="flex-shrink-0 h-11 w-11 rounded-xl bg-stone-100 text-stone-600 flex items-center justify-center">
-                    <Phone size={20} />
-                  </div>
-                  <div>
-                    <span className="font-semibold">+48 600 000 000</span>
-                    <span className="block text-sm text-stone-500">Pn–Pt 9:00–16:00</span>
-                  </div>
-                </li>
-                 <li className="flex items-center gap-4">
-                  <div className="flex-shrink-0 h-11 w-11 rounded-xl bg-stone-100 text-stone-600 flex items-center justify-center">
-                    <MapPin size={20} />
-                  </div>
-                  <div>
-                    <span className="font-semibold">Kraków / Warszawa</span>
-                    <span className="block text-sm text-stone-500">Pracujemy głównie zdalnie</span>
-                  </div>
-                </li>
-              </ul>
+                 <div className="flex-shrink-0 h-11 w-11 rounded-xl bg-stone-100 text-stone-600 flex items-center justify-center">
+                   <MapPin size={20} />
+                 </div>
+                 <div>
+                   <span className="font-semibold">{companyInfo?.address || "Kraków, Polska"}</span>
+                   <span className="block text-sm text-stone-500">Siedziba główna</span>
+                 </div>
+               </li>
+             </ul>
 
-              <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5 flex flex-col sm:flex-row items-center gap-4">
-                  <div className="flex-shrink-0">
-                      <img src="https://placehold.co/80x80/ffe4e6/ec4899?text=FAQ" alt="FAQ" className="rounded-full w-20 h-20 object-cover" />
-                  </div>
-                  <div className="text-center sm:text-left">
-                      <h4 className="font-semibold text-stone-800">Sprawdź nasze FAQ</h4>
-                      <p className="text-sm text-stone-500 mb-3">Szybkie odpowiedzi na najczęstsze pytania.</p>
-                      <Button asChild variant="outline" className="rounded-full bg-white shadow-sm">
-                          <NavLink to="/faq">Przejdź do FAQ</NavLink>
-                      </Button>
-                  </div>
-              </div>
+             <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5 flex flex-col sm:flex-row items-center gap-4">
+                 <div className="flex-shrink-0">
+                     <img src="https://placehold.co/80x80/ffe4e6/ec4899?text=FAQ" alt="FAQ" className="rounded-full w-20 h-20 object-cover" />
+                 </div>
+                 <div className="text-center sm:text-left">
+                     <h4 className="font-semibold text-stone-800">Sprawdź nasze FAQ</h4>
+                     <p className="text-sm text-stone-500 mb-3">Szybkie odpowiedzi na najczęstsze pytania.</p>
+                     <Button asChild variant="outline" className="rounded-full bg-white shadow-sm">
+                         <NavLink to="/faq">Przejdź do FAQ</NavLink>
+                     </Button>
+                 </div>
+             </div>
            </div>
 
            <div className="p-8 md:p-12 bg-stone-50/70 border-l border-stone-100">
-              
-              {sent === "ok" ? (
-                <div className="flex flex-col items-center justify-center h-full text-center animate-in fade-in duration-500">
-                    <div className="h-16 w-16 flex items-center justify-center rounded-full bg-green-100 text-green-600 mb-4">
-                        <CheckCircle2 className="h-8 w-8" />
-                    </div>
-                    <h2 className="text-2xl font-semibold text-stone-900">Wiadomość zapisana!</h2>
-                    <p className="text-stone-500 mt-2 max-w-xs">
-                        Dziękujemy za kontakt. W tej wersji demo, wiadomość została zapisana w Twojej przeglądarce.
-                    </p>
-                </div>
-              ) : (
-                <form onSubmit={onSubmit} className="space-y-4">
-                  <div className="grid sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-stone-700">Imię i nazwisko</label>
-                      <Input
-                        value={form.name}
-                        onChange={(e) => set("name", e.target.value)}
-                        placeholder="np. Anna Kowalska"
-                        autoComplete="name"
-                        className="h-11 bg-white rounded-xl"
-                      />
-                      {errors.name && <FieldError>{errors.name}</FieldError>}
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-stone-700">E-mail</label>
-                      <Input
-                        value={form.email}
-                        onChange={(e) => set("email", e.target.value)}
-                        placeholder="np. anna@example.com"
-                        inputMode="email"
-                        autoComplete="email"
-                        className="h-11 bg-white rounded-xl"
-                      />
-                      {errors.email && <FieldError>{errors.email}</FieldError>}
-                    </div>
-                  </div>
+             
+             {sent === "ok" ? (
+               <div className="flex flex-col items-center justify-center h-full text-center animate-in fade-in duration-500">
+                   <div className="h-16 w-16 flex items-center justify-center rounded-full bg-green-100 text-green-600 mb-4">
+                       <CheckCircle2 className="h-8 w-8" />
+                   </div>
+                   <h2 className="text-2xl font-semibold text-stone-900">Wiadomość wysłana!</h2>
+                   <p className="text-stone-500 mt-2 max-w-xs">
+                       Dziękujemy za kontakt. Odpowiemy najszybciej jak to możliwe na podany adres e-mail.
+                   </p>
+               </div>
+             ) : (
+               <form onSubmit={onSubmit} className="space-y-4">
+                 <div className="grid sm:grid-cols-2 gap-4">
+                   <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-stone-700">Imię i nazwisko</label>
+                     <Input
+                       value={form.name}
+                       onChange={(e) => set("name", e.target.value)}
+                       placeholder="np. Anna Kowalska"
+                       autoComplete="name"
+                       className="h-11 bg-white rounded-xl"
+                     />
+                     {errors.name && <FieldError>{errors.name}</FieldError>}
+                   </div>
+                   <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-stone-700">E-mail</label>
+                     <Input
+                       value={form.email}
+                       onChange={(e) => set("email", e.target.value)}
+                       placeholder="np. anna@example.com"
+                       inputMode="email"
+                       autoComplete="email"
+                       className="h-11 bg-white rounded-xl"
+                     />
+                     {errors.email && <FieldError>{errors.email}</FieldError>}
+                   </div>
+                 </div>
 
-                  <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-stone-700">Temat</label>
-                      <Select value={form.topic} onValueChange={(v) => set("topic", v)}>
-                        <SelectTrigger className="h-11 bg-white rounded-xl"><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                          {TOPICS.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                  </div>
+                 <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-stone-700">Temat</label>
+                     <Select value={form.topic} onValueChange={(v) => set("topic", v)}>
+                       <SelectTrigger className="h-11 bg-white rounded-xl"><SelectValue/></SelectTrigger>
+                       <SelectContent>
+                         {TOPICS.map((t) => (
+                           <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                 </div>
 
-                  <div className="space-y-1.5">
-                      <label className="text-sm font-medium text-stone-700">Wiadomość</label>
-                      <Textarea
-                        value={form.message}
-                        onChange={(e) => set("message", e.target.value)}
-                        rows={6}
-                        placeholder="Opisz krótko sprawę..."
-                        className="bg-white rounded-xl"
-                      />
-                      {errors.message && <FieldError>{errors.message}</FieldError>}
-                  </div>
+                 <div className="space-y-1.5">
+                     <label className="text-sm font-medium text-stone-700">Wiadomość</label>
+                     <Textarea
+                       value={form.message}
+                       onChange={(e) => set("message", e.target.value)}
+                       rows={6}
+                       placeholder="Opisz krótko sprawę..."
+                       className="bg-white rounded-xl"
+                     />
+                     {errors.message && <FieldError>{errors.message}</FieldError>}
+                 </div>
 
-                  <div className="hidden">
-                    <label>Strona</label>
-                    <input value={form.website} onChange={(e) => set("website", e.target.value)} tabIndex={-1} autoComplete="off" />
-                    {errors.website && <FieldError>{errors.website}</FieldError>}
-                  </div>
+                 <div className="hidden">
+                   <label>Strona</label>
+                   <input value={form.website} onChange={(e) => set("website", e.target.value)} tabIndex={-1} autoComplete="off" />
+                   {errors.website && <FieldError>{errors.website}</FieldError>}
+                 </div>
 
-                  <div className="flex items-start gap-3">
-                    <Checkbox id="consent" checked={form.consent} onCheckedChange={(c) => set("consent", Boolean(c))} className="mt-1" />
-                    <div className="grid gap-1.5">
-                        <label htmlFor="consent" className="text-sm font-medium leading-none cursor-pointer">
-                          Wyrażam zgodę na przetwarzanie danych.
-                        </label>
-                        <p className="text-xs text-stone-500">
-                          Dane są przetwarzane tylko na potrzeby odpowiedzi (wersja demo).
-                        </p>
-                        {errors.consent && <FieldError>{errors.consent}</FieldError>}
-                    </div>
-                  </div>
+                 <div className="flex items-start gap-3">
+                   <Checkbox id="consent" checked={form.consent} onCheckedChange={(c) => set("consent", Boolean(c))} className="mt-1" />
+                   <div className="grid gap-1.5">
+                       <label htmlFor="consent" className="text-sm font-medium leading-none cursor-pointer">
+                         Wyrażam zgodę na przetwarzanie danych.
+                       </label>
+                       <p className="text-xs text-stone-500">
+                         Dane są przetwarzane wyłącznie w celu udzielenia odpowiedzi na Twoje zgłoszenie.
+                       </p>
+                       {errors.consent && <FieldError>{errors.consent}</FieldError>}
+                   </div>
+                 </div>
 
-                  <div className="pt-2 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-4">
+                 <div className="pt-2 flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-4">
                      <div className="text-xs text-stone-500 inline-flex items-center gap-1.5">
-                       <Shield size={14} /> Dane zapisywane lokalnie (demo).
+                       <Shield size={14} /> Połączenie szyfrowane
                      </div>
                      <Button
                        type="submit"
                        disabled={submitting}
                        className="w-full sm:w-auto rounded-xl bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-200 h-12 px-8"
                      >
-                       <Send size={16} className="mr-2" />
+                       {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin"/> : <Send size={16} className="mr-2" />}
                        {submitting ? "Wysyłanie…" : "Wyślij wiadomość"}
                      </Button>
                   </div>

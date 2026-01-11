@@ -15,7 +15,8 @@ import api from "../lib/api";
 
 interface TimelineGroup {
   id: number;
-  timelabel: string;
+  name: string;
+  orderindex: number;
 }
 
 interface TimelineEvent {
@@ -26,17 +27,17 @@ interface TimelineEvent {
   iscompleted: boolean;
 }
 
-interface TimelineViewItem {
-  id: string;
-  timeLabel: string;
-  tasks: Task[];
-}
-
 interface Task {
   id: number;
   title: string;
   details: string;
   status: "todo" | "done";
+}
+
+interface TimelineViewItem {
+  id: string;
+  timeLabel: string;
+  tasks: Task[];
 }
 
 interface TaskFormState {
@@ -62,7 +63,10 @@ export default function Timeline() {
         api.get("/timeline-groups/"),
         api.get("/timeline/")
       ]);
-      setGroups(groupsRes.data);
+      
+      const sortedGroups = groupsRes.data.sort((a: TimelineGroup, b: TimelineGroup) => a.orderindex - b.orderindex);
+      
+      setGroups(sortedGroups);
       setEvents(eventsRes.data);
     } catch (error) {
       console.error("Błąd pobierania harmonogramu:", error);
@@ -88,7 +92,7 @@ export default function Timeline() {
 
       return {
         id: String(g.id),
-        timeLabel: g.timelabel,
+        timeLabel: g.name,
         tasks: groupTasks
       };
     });
@@ -272,17 +276,17 @@ export default function Timeline() {
                         onClick={() => setCollapsed((c) => ({ ...c, [group.id]: !c[group.id] }))}
                         className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-stone-50 transition-colors"
                       >
-                         <div>
+                          <div>
                             <h3 className="text-lg font-bold text-stone-800 flex items-center gap-2">
                                {group.timeLabel}
                             </h3>
                             <div className="text-xs text-stone-500 mt-0.5 flex items-center gap-2">
                                <Clock size={12} /> {groupDone}/{groupTotal} zadań ukończonych
                             </div>
-                         </div>
-                         <div className="text-stone-400">
-                            {isCollapsed ? <ChevronRight size={20} /> : <ChevronDown size={20} />}
-                         </div>
+                          </div>
+                          <div className="text-stone-400">
+                             {isCollapsed ? <ChevronRight size={20} /> : <ChevronDown size={20} />}
+                          </div>
                       </button>
                       
                       <div className="h-1 w-full bg-stone-100">
@@ -291,7 +295,7 @@ export default function Timeline() {
                             style={{ width: groupTotal > 0 ? `${(groupDone / groupTotal) * 100}%` : '0%' }}
                           />
                        </div>
-                    </div>
+                   </div>
                 </div>
 
                 <div
@@ -441,13 +445,13 @@ function TimelineEditor({
                       )}
 
                       {groups.map(g => (
-                         <option 
+                          <option 
                             key={g.id} 
                             value={g.id} 
                             style={{ color: '#000000', backgroundColor: '#ffffff' }}
-                         >
-                            {g.timelabel}
-                         </option>
+                          >
+                             {g.name}
+                          </option>
                       ))}
                    </select>
                    
@@ -472,11 +476,11 @@ function TimelineEditor({
        <div className="flex justify-between pt-4 border-t border-stone-100">
           {value.id ? (
               <button 
-                 type="button" 
-                 onClick={onDelete}
-                 className="text-stone-400 hover:text-rose-600 px-2 py-2 text-sm font-medium transition-colors"
+                  type="button" 
+                  onClick={onDelete}
+                  className="text-stone-400 hover:text-rose-600 px-2 py-2 text-sm font-medium transition-colors"
               >
-                 Usuń punkt
+                  Usuń punkt
               </button>
           ) : <div/>}
           

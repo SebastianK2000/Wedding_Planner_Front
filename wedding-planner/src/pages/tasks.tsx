@@ -14,37 +14,49 @@ import {
   AlertCircle, 
   Calendar as CalendarIcon,
   Flag,
-  Check
+  Check,
+  Loader2
 } from "lucide-react";
+import api from "../lib/api";
+
+interface ApiCategory {
+  id: number;
+  name: string;
+}
+
+interface ApiPriority {
+  id: number;
+  name: string;
+  colorcode?: string;
+}
+
+interface ApiTask {
+  id: number;
+  title: string;
+  categoryid: number;
+  priorityid: number;
+  status: string;
+  duedate: string | null;
+  notes: string;
+  createdat?: string; 
+}
 
 type Status = "todo" | "doing" | "done";
-type Priority = "low" | "normal" | "high";
-type Category =
-  | "Sala" | "Muzyka" | "Fotograf" | "Florysta" | "Goście" 
-  | "Budżet" | "Papeteria" | "Transport" | "Dekoracje" | "Inne";
+type PriorityKey = "low" | "normal" | "high"; 
 
-type Task = {
-  id: string;
+type TaskView = {
+  id: number;
   label: string;
   status: Status;
-  priority: Priority;
-  category: Category;
+  priority: PriorityKey;
+  priorityId: number;
+  category: string;
+  categoryId: number;
   due?: string | null;
   notes?: string;
   createdAt: string;
-  updatedAt: string;
 };
 
-const CATEGORIES: Category[] = [
-  "Sala", "Muzyka", "Fotograf", "Florysta", "Goście", 
-  "Budżet", "Papeteria", "Transport", "Dekoracje", "Inne",
-];
-
-const LS_KEY = "wp_tasks";
-
-function uid() {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
-}
 
 function todayISO() {
   const d = new Date();
@@ -59,7 +71,14 @@ function addDaysISO(startISO: string, days: number) {
   return d.toISOString().slice(0, 10);
 }
 
-const priorityMap: Record<Priority, string> = {
+function mapPriorityToStyle(name: string): PriorityKey {
+  const n = name.toLowerCase();
+  if (n.includes("wysoki") || n.includes("high") || n.includes("pilny")) return "high";
+  if (n.includes("niski") || n.includes("low")) return "low";
+  return "normal";
+}
+
+const priorityMap: Record<PriorityKey, string> = {
   high: "Wysoki",
   normal: "Normalny",
   low: "Niski",
@@ -72,31 +91,59 @@ const statusMap: Record<Status, string> = {
 };
 
 export default function Tasks() {
-  const [tasks, setTasks] = useState<Task[]>(() => {
-    try {
-      const raw = localStorage.getItem(LS_KEY);
-      if (raw) return JSON.parse(raw) as Task[];
-    } catch (err) {
-      console.warn("Failed to read tasks from localStorage:", err);
-    }
-    const now = new Date().toISOString();
-    return [
-      { id: uid(), label: "Rezerwacja sali", status: "done", priority: "high", category: "Sala", due: addDaysISO(todayISO(), -5), createdAt: now, updatedAt: now },
-      { id: uid(), label: "Wybrać fotografa", status: "todo", priority: "normal", category: "Fotograf", due: addDaysISO(todayISO(), 10), createdAt: now, updatedAt: now },
-      { id: uid(), label: "Ustalić menu", status: "doing", priority: "normal", category: "Sala", due: addDaysISO(todayISO(), 20), createdAt: now, updatedAt: now },
-    ];
-  });
+  const [tasks, setTasks] = useState<TaskView[]>([]);
+  const [apiCategories, setApiCategories] = useState<ApiCategory[]>([]);
+  const [apiPriorities, setApiPriorities] = useState<ApiPriority[]>([]);
+  const [loading, setLoading] = useState(true);
 
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<Status | "wszyscy">("wszyscy");
-  const [catFilter, setCatFilter] = useState<Category | "wszystkie">("wszystkie");
-  const [prioFilter, setPrioFilter] = useState<Priority | "wszystkie">("wszystkie");
-  const [editing, setEditing] = useState<Task | null>(null);
+  const [catFilter, setCatFilter] = useState<string | "wszystkie">("wszystkie");
+  const [prioFilter, setPrioFilter] = useState<PriorityKey | "wszystkie">("wszystkie");
+  const [editing, setEditing] = useState<TaskView | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
+  const fetchData = async () => {
+    try {
+      const [tasksRes, catsRes, priosRes] = await Promise.all([
+        api.get("/tasks/"),
+        api.get("/budget-categories/"),
+        api.get("/task-priorities/"),
+      ]);
+
+      setApiCategories(catsRes.data);
+      setApiPriorities(priosRes.data);
+
+      const mappedTasks: TaskView[] = tasksRes.data.map((t: ApiTask) => {
+        const cat = catsRes.data.find((c: ApiCategory) => c.id === t.categoryid);
+        const prio = priosRes.data.find((p: ApiPriority) => p.id === t.priorityid);
+        
+        return {
+          id: t.id,
+          label: t.title,
+          status: (["todo", "doing", "done"].includes(t.status) ? t.status : "todo") as Status,
+          priority: prio ? mapPriorityToStyle(prio.name) : "normal",
+          priorityId: t.priorityid,
+          category: cat ? cat.name : "Inne",
+          categoryId: t.categoryid,
+          due: t.duedate,
+          notes: t.notes,
+          createdAt: t.createdat || new Date().toISOString()
+        };
+      });
+
+      setTasks(mappedTasks);
+    } catch (error) {
+      console.error("Błąd pobierania zadań:", error);
+      setToast("Błąd połączenia z serwerem");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    localStorage.setItem(LS_KEY, JSON.stringify(tasks));
-  }, [tasks]);
+    fetchData();
+  }, []);
 
   useEffect(() => {
     if (toast) {
@@ -131,7 +178,7 @@ export default function Tasks() {
   const groups = useMemo(() => {
     const today = todayISO();
     const weekEnd = addDaysISO(today, 7);
-    const buckets: Record<string, Task[]> = {
+    const buckets: Record<string, TaskView[]> = {
       "Zaległe": [],
       "Dziś": [],
       "Tydzień": [],
@@ -148,53 +195,85 @@ export default function Tasks() {
     return buckets;
   }, [filtered]);
 
-  function addQuick(label: string, category: Category) {
-    const now = new Date().toISOString();
-    setTasks((prev) => [
-      {
-        id: uid(),
-        label,
+
+  async function addQuick(label: string, categoryName: string) {
+    const cat = apiCategories.find(c => c.name === categoryName) || apiCategories[0];
+    const prio = apiPriorities.find(p => mapPriorityToStyle(p.name) === "normal") || apiPriorities[0];
+
+    if (!cat || !prio) return;
+
+    const payload = {
+        title: label,
+        categoryid: cat.id,
+        priorityid: prio.id,
         status: "todo",
-        priority: "normal",
-        category,
-        due: null,
-        createdAt: now,
-        updatedAt: now,
-      },
-      ...prev,
-    ]);
-    setToast("Dodano zadanie: " + label);
+        duedate: null,
+        notes: ""
+    };
+
+    try {
+        await api.post("/tasks/", payload);
+        setToast("Dodano zadanie: " + label);
+        fetchData();
+    } catch (e) {
+        console.error(e);
+        setToast("Błąd dodawania");
+    }
   }
 
-  function save(task: Task) {
-    setTasks((prev) => {
-      const exists = prev.some((t) => t.id === task.id);
-      return exists
-        ? prev.map((t) => (t.id === task.id ? { ...task, updatedAt: new Date().toISOString() } : t))
-        : [{ ...task, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }, ...prev];
-    });
-    setEditing(null);
-    setToast("Zapisano zadanie");
+  async function save(task: TaskView) {
+    const payload = {
+        title: task.label,
+        categoryid: task.categoryId,
+        priorityid: task.priorityId,
+        status: task.status,
+        duedate: task.due,
+        notes: task.notes
+    };
+
+    try {
+        if (task.id > 0) {
+            await api.put(`/tasks/${task.id}/`, payload);
+        } else {
+            await api.post("/tasks/", payload);
+        }
+        setEditing(null);
+        setToast("Zapisano zadanie");
+        fetchData();
+    } catch (e) {
+        console.error(e);
+        alert("Wystąpił błąd podczas zapisu.");
+    }
   }
 
-  function remove(id: string) {
+  async function remove(id: number) {
     if(!confirm("Czy na pewno chcesz usunąć to zadanie?")) return;
+    
     setTasks((prev) => prev.filter((t) => t.id !== id));
     setToast("Usunięto zadanie");
+
+    try {
+        await api.delete(`/tasks/${id}/`);
+    } catch (e) {
+        console.error(e);
+        fetchData();
+    }
   }
 
-  function toggleDone(id: string) {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === id
-          ? {
-              ...t,
-              status: t.status === "done" ? "todo" : "done",
-              updatedAt: new Date().toISOString(),
-            }
-          : t
-      )
-    );
+  async function toggleDone(id: number) {
+    const task = tasks.find(t => t.id === id);
+    if (!task) return;
+
+    const newStatus = task.status === "done" ? "todo" : "done";
+    
+    setTasks(prev => prev.map(t => t.id === id ? { ...t, status: newStatus } : t));
+
+    try {
+        await api.patch(`/tasks/${id}/`, { status: newStatus });
+    } catch (e) {
+        console.error(e);
+        fetchData();
+    }
   }
 
   function exportPDF() {
@@ -227,8 +306,17 @@ export default function Tasks() {
   const btnPrimary = "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium bg-accent-500 text-white hover:bg-accent-600 transition-colors shadow-md shadow-accent-500/20";
   const btnSecondary = "inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2 text-sm font-medium border border-brand-200 bg-white text-stone-700 hover:bg-brand-50 transition-colors";
 
+  if (loading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-screen bg-stone-50/50">
+            <Loader2 className="h-10 w-10 animate-spin text-accent-500 mb-4" />
+            <p className="text-stone-500">Wczytuję listę zadań...</p>
+        </div>
+      );
+  }
+
   return (
-    <div className="space-y-6 max-w-6xl mx-auto">
+    <div className="space-y-6 max-w-6xl mx-auto p-4">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-stone-900">Zadania</h2>
@@ -238,7 +326,7 @@ export default function Tasks() {
           <button className={btnSecondary} onClick={exportPDF}>
             <FileDown className="h-4 w-4" /> PDF
           </button>
-          <button className={btnPrimary} onClick={() => setEditing(makeEmptyTask())}>
+          <button className={btnPrimary} onClick={() => setEditing(makeEmptyTask(apiCategories, apiPriorities))}>
             <Plus className="h-4 w-4" /> Dodaj zadanie
           </button>
         </div>
@@ -297,13 +385,13 @@ export default function Tasks() {
             />
             <Select
               value={catFilter}
-              onChange={(v) => setCatFilter(v as Category | "wszystkie")}
-              options={[{ value: "wszystkie", label: "Kategoria: Wszystkie" }, ...CATEGORIES.map((c) => ({ value: c, label: c }))]}
+              onChange={(v) => setCatFilter(v)}
+              options={[{ value: "wszystkie", label: "Kategoria: Wszystkie" }, ...apiCategories.map((c) => ({ value: c.name, label: c.name }))]}
               className="bg-white min-w-[180px]"
             />
             <Select
               value={prioFilter}
-              onChange={(v) => setPrioFilter(v as Priority | "wszystkie")}
+              onChange={(v) => setPrioFilter(v as PriorityKey | "wszystkie")}
               options={[
                 { value: "wszystkie", label: "Priorytet" },
                 { value: "high", label: "Wysoki" },
@@ -315,7 +403,7 @@ export default function Tasks() {
          </div>
       </div>
 
-      {statusFilter === "wszyscy" && query === "" && (
+      {statusFilter === "wszyscy" && query === "" && apiCategories.length > 0 && (
           <div className="flex flex-wrap gap-2 px-1">
              <span className="inline-flex items-center text-xs font-medium text-stone-500 mr-1">Szybki start:</span>
             <QuickChip onClick={() => addQuick("Potwierdzić godziny i menu", "Sala")} label="Sala" />
@@ -328,7 +416,7 @@ export default function Tasks() {
            list.length > 0 && (
             <section key={title} className="space-y-3">
               <h3 className="flex items-center gap-2 text-sm font-bold text-stone-800 uppercase tracking-wider pl-1 mt-4">
-                 {title} <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 text-xs">{list.length}</span>
+                  {title} <span className="px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 text-xs">{list.length}</span>
               </h3>
 
               <div className="bg-white rounded-3xl shadow-sm border border-stone-200 overflow-hidden">
@@ -381,7 +469,7 @@ export default function Tasks() {
                 <div className="md:hidden p-4 space-y-3">
                   {list.map((t) => (
                     <div key={t.id} className={`rounded-2xl border p-4 bg-white shadow-sm ${t.status === "done" ? "border-stone-100 opacity-70" : "border-stone-200"}`}>
-                       <div className="flex items-start gap-3">
+                        <div className="flex items-start gap-3">
                           <div 
                                 onClick={() => toggleDone(t.id)} 
                                 className={`mt-1 w-5 h-5 rounded-full border cursor-pointer flex-shrink-0 flex items-center justify-center transition-all ${t.status === "done" ? "bg-green-500 border-green-500" : "bg-white border-stone-300"}`}
@@ -397,11 +485,11 @@ export default function Tasks() {
                                 {t.due && <DueBadge due={t.due} inline />}
                              </div>
                           </div>
-                       </div>
-                       <div className="flex justify-end gap-2 border-t border-stone-100 pt-3 mt-3">
+                        </div>
+                        <div className="flex justify-end gap-2 border-t border-stone-100 pt-3 mt-3">
                           <button onClick={() => setEditing(t)} className="text-xs font-medium px-3 py-1.5 bg-stone-100 rounded-lg text-stone-600">Edytuj</button>
                           <button onClick={() => remove(t.id)} className="text-xs font-medium px-3 py-1.5 bg-rose-50 rounded-lg text-rose-600">Usuń</button>
-                       </div>
+                        </div>
                     </div>
                   ))}
                 </div>
@@ -417,7 +505,7 @@ export default function Tasks() {
            </div>
            <h3 className="text-lg font-medium text-stone-900">Brak zadań</h3>
            <p className="text-stone-500 max-w-xs mt-1 mb-6">Nie znaleźliśmy zadań pasujących do Twoich filtrów lub lista jest pusta.</p>
-           <button className={btnPrimary} onClick={() => setEditing(makeEmptyTask())}>
+           <button className={btnPrimary} onClick={() => setEditing(makeEmptyTask(apiCategories, apiPriorities))}>
               Dodaj pierwsze zadanie
            </button>
         </div>
@@ -428,11 +516,17 @@ export default function Tasks() {
           <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
             <div className="p-5 border-b border-stone-100 flex justify-between items-center bg-stone-50/50">
               <div className="text-lg font-bold text-stone-800">
-                {tasks.some((x) => x.id === editing.id) ? "Edytuj zadanie" : "Nowe zadanie"}
+                {editing.id > 0 ? "Edytuj zadanie" : "Nowe zadanie"}
               </div>
               <button onClick={() => setEditing(null)} className="text-stone-400 hover:text-stone-600">Anuluj</button>
             </div>
-            <TaskEditor value={editing} onCancel={() => setEditing(null)} onSave={save} />
+            <TaskEditor 
+                value={editing} 
+                apiCategories={apiCategories}
+                apiPriorities={apiPriorities}
+                onCancel={() => setEditing(null)} 
+                onSave={save} 
+            />
           </div>
         </div>
       )}
@@ -447,19 +541,19 @@ export default function Tasks() {
   );
 }
 
-
-function makeEmptyTask(): Task {
+function makeEmptyTask(cats: ApiCategory[], prios: ApiPriority[]): TaskView {
   const now = new Date().toISOString();
   return {
-    id: uid(),
+    id: 0,
     label: "",
     status: "todo",
     priority: "normal",
+    priorityId: prios.length > 0 ? prios[0].id : 0,
     category: "Inne",
+    categoryId: cats.length > 0 ? cats[0].id : 0,
     due: null,
     notes: "",
     createdAt: now,
-    updatedAt: now,
   };
 }
 
@@ -527,7 +621,7 @@ function Select({
   );
 }
 
-function PriorityBadge({ p, inline }: { p: Priority; inline?: boolean }) {
+function PriorityBadge({ p, inline }: { p: PriorityKey; inline?: boolean }) {
   const map = {
     high: "bg-rose-100 text-rose-700 border-rose-200",
     normal: "bg-amber-50 text-amber-700 border-amber-200",
@@ -580,16 +674,35 @@ function TaskEditor({
   value,
   onSave,
   onCancel,
+  apiCategories,
+  apiPriorities
 }: {
-  value: Task;
-  onSave: (t: Task) => void;
+  value: TaskView;
+  onSave: (t: TaskView) => void;
   onCancel: () => void;
+  apiCategories: ApiCategory[];
+  apiPriorities: ApiPriority[];
 }) {
-  const [form, setForm] = useState<Task>(value);
+  const [form, setForm] = useState<TaskView>(value);
   const [error, setError] = useState<string | null>(null);
 
-  function update<K extends keyof Task>(key: K, val: Task[K]) {
+  function update<K extends keyof TaskView>(key: K, val: TaskView[K]) {
     setForm((f) => ({ ...f, [key]: val }));
+  }
+
+  function handleCategoryChange(catIdStr: string) {
+      const id = Number(catIdStr);
+      const cat = apiCategories.find(c => c.id === id);
+      setForm(f => ({ ...f, categoryId: id, category: cat ? cat.name : "" }));
+  }
+
+  function handlePriorityChange(prioId: number) {
+      const prio = apiPriorities.find(p => p.id === prioId);
+      setForm(f => ({ 
+          ...f, 
+          priorityId: prioId, 
+          priority: prio ? mapPriorityToStyle(prio.name) : "normal" 
+      }));
   }
 
   function submit(e: React.FormEvent) {
@@ -618,12 +731,12 @@ function TaskEditor({
             <label className="block text-xs font-medium text-stone-500 mb-1.5">Kategoria</label>
             <div className="relative">
                 <select
-                value={form.category}
-                onChange={(e) => update("category", e.target.value as Category)}
+                value={form.categoryId}
+                onChange={(e) => handleCategoryChange(e.target.value)}
                 className="w-full appearance-none rounded-xl border border-stone-200 px-4 py-2.5 bg-white text-stone-700 outline-none focus:border-accent-500 focus:ring-2 focus:ring-accent-500/20"
                 >
-                {CATEGORIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                {apiCategories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
                 </select>
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">
@@ -650,21 +763,24 @@ function TaskEditor({
         <div className="grid grid-cols-2 gap-4">
             <div>
                 <label className="block text-xs font-medium text-stone-500 mb-1.5">Priorytet</label>
-                <div className="flex bg-stone-100 rounded-xl p-1">
-                    {(["low", "normal", "high"] as const).map((p) => (
-                        <button
-                            key={p}
-                            type="button"
-                            onClick={() => update("priority", p)}
-                            className={`flex-1 text-xs py-1.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1 ${
-                                form.priority === p 
-                                ? "bg-white text-stone-900 shadow-sm" 
-                                : "text-stone-500 hover:text-stone-700"
-                            }`}
-                        >
-                            {p === "high" && <Flag className="h-3 w-3" />} {priorityMap[p]}
-                        </button>
-                    ))}
+                <div className="flex bg-stone-100 rounded-xl p-1 gap-1">
+                    {apiPriorities.map((p) => {
+                        const styleKey = mapPriorityToStyle(p.name);
+                        return (
+                            <button
+                                key={p.id}
+                                type="button"
+                                onClick={() => handlePriorityChange(p.id)}
+                                className={`flex-1 text-xs py-1.5 rounded-lg font-medium transition-all flex items-center justify-center gap-1 ${
+                                    form.priorityId === p.id 
+                                    ? "bg-white text-stone-900 shadow-sm" 
+                                    : "text-stone-500 hover:text-stone-700"
+                                }`}
+                            >
+                                {styleKey === "high" && <Flag className="h-3 w-3" />} {p.name}
+                            </button>
+                        );
+                    })}
                 </div>
             </div>
             <div>

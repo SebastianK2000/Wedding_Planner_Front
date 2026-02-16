@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useState, useCallback } from "react";
-import { X, Trash2, Loader2, ShoppingBag, CalendarCheck } from "lucide-react";
+import { X, Trash2, Loader2, ShoppingBag, CreditCard, CheckCircle2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import api from "../lib/api";
@@ -11,6 +11,14 @@ const CART_KEYS = {
   music: "wp_cart_music",
   venues: "wp_cart_venues",
   transport: "wp_cart_transport"
+};
+
+const BUDGET_CATEGORY_MAP: Record<string, number> = {
+  venue: 1,
+  photographer: 2,
+  musician: 3,
+  florist: 4,
+  transport: 6
 };
 
 interface CartItem {
@@ -32,6 +40,10 @@ interface CartProps {
 export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(false);
+  
+  const [isPaying, setIsPaying] = useState(false);
+  const [paymentStep, setPaymentStep] = useState(0);
+  
   const navigate = useNavigate();
 
   const fetchLocalCart = useCallback(() => {
@@ -120,7 +132,6 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
     }
 
     window.addEventListener("wp:cart:update", refreshCart);
-
     return () => {
       window.removeEventListener("wp:cart:update", refreshCart);
     };
@@ -140,11 +151,11 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
       } catch (e) { console.error("Błąd usuwania API", e); }
     } else {
       let lsKey = "";
-      if (item.type === "venue" || item.type.includes("venue")) lsKey = CART_KEYS.venues;
-      else if (item.type === "photographer" || item.type.includes("photo")) lsKey = CART_KEYS.photographers;
-      else if (item.type === "florist" || item.type.includes("florist")) lsKey = CART_KEYS.florists;
-      else if (item.type === "musician" || item.type.includes("music")) lsKey = CART_KEYS.music;
-      else if (item.type === "transport" || item.type.includes("transport")) lsKey = CART_KEYS.transport;
+      if (item.type === "venue") lsKey = CART_KEYS.venues;
+      else if (item.type === "photographer") lsKey = CART_KEYS.photographers;
+      else if (item.type === "florist") lsKey = CART_KEYS.florists;
+      else if (item.type === "musician") lsKey = CART_KEYS.music;
+      else if (item.type === "transport") lsKey = CART_KEYS.transport;
 
       if (lsKey) {
         try {
@@ -153,9 +164,7 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
             const list = JSON.parse(raw);
             const newList = list.filter((x: any) => x.id !== item.id);
             localStorage.setItem(lsKey, JSON.stringify(newList));
-            
             setItems(prev => prev.filter(i => i.uniqueId !== item.uniqueId));
-            
             window.dispatchEvent(new Event("wp:cart:update"));
           }
         } catch (e) { console.error("Błąd usuwania z LS", e); }
@@ -167,21 +176,101 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
     return items.reduce((sum, item) => sum + (item.price || 0), 0);
   };
 
+  const handleCheckout = async () => {
+    if (items.length === 0) return;
+    
+    setIsPaying(true);
+    setPaymentStep(0);
+
+    setTimeout(() => setPaymentStep(1), 1000);
+    setTimeout(() => setPaymentStep(2), 2500);
+    
+    setTimeout(async () => {
+      if (isLoggedIn) {
+        try {
+          const budgetPromises = items.map(item => {
+             const categoryId = BUDGET_CATEGORY_MAP[item.type] || 8;
+             return api.post("/budget-items/", {
+                categoryid: categoryId,
+                name: item.name,
+                plannedamount: item.price || 0,
+                actualamount: item.price || 0,
+                ispaid: true,
+                notes: "Zakupione przez aplikację (Koszyk)"
+             });
+          });
+
+          await Promise.all(budgetPromises);
+          
+          const favRes = await api.get("/user-favorites/");
+          const deletePromises = favRes.data.map((fav: any) => api.delete(`/user-favorites/${fav.id}/`));
+          await Promise.all(deletePromises);
+
+        } catch (e) {
+          console.error("Błąd podczas zapisywania do budżetu", e);
+          alert("Wystąpił błąd zapisu do budżetu, ale płatność została symulowana.");
+        }
+      } else {
+        Object.values(CART_KEYS).forEach(key => localStorage.removeItem(key));
+      }
+
+      setItems([]);
+      window.dispatchEvent(new Event("wp:cart:update"));
+      
+      setTimeout(() => {
+        setIsPaying(false);
+        onClose();
+        alert("Dziękujemy! Twoje zamówienie zostało zrealizowane i dodane do budżetu.");
+        if (isLoggedIn) navigate("/budzet");
+      }, 500);
+
+    }, 4000);
+  };
+
   return (
     <>
       <div 
         className={`fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm transition-opacity ${isOpen ? "opacity-100" : "opacity-0 pointer-events-none"}`} 
-        onClick={onClose}
+        onClick={isPaying ? undefined : onClose}
       />
       
       <div className={`fixed inset-y-0 right-0 z-[70] w-full max-w-md bg-white shadow-2xl transition-transform duration-300 ease-in-out transform ${isOpen ? "translate-x-0" : "translate-x-full"}`}>
+        
+        {isPaying && (
+          <div className="absolute inset-0 z-[80] bg-white/95 flex flex-col items-center justify-center p-8 text-center animate-in fade-in duration-500">
+             {paymentStep < 2 ? (
+               <>
+                 <div className="relative mb-6">
+                    <div className="absolute inset-0 rounded-full border-4 border-stone-100"></div>
+                    <div className="absolute inset-0 rounded-full border-4 border-t-rose-500 animate-spin"></div>
+                    <div className="h-24 w-24 rounded-full bg-stone-50 flex items-center justify-center relative z-10">
+                        <Lock className="h-10 w-10 text-stone-400 animate-pulse" />
+                    </div>
+                 </div>
+                 <h3 className="text-xl font-bold text-stone-900 mb-2">
+                    {paymentStep === 0 ? "Inicjowanie płatności..." : "Autoryzacja banku..."}
+                 </h3>
+                 <p className="text-stone-500 text-sm">Proszę nie zamykać okna.</p>
+               </>
+             ) : (
+                <>
+                  <div className="mb-6 h-24 w-24 rounded-full bg-green-100 flex items-center justify-center animate-in zoom-in duration-300">
+                      <CheckCircle2 className="h-12 w-12 text-green-600" />
+                  </div>
+                  <h3 className="text-xl font-bold text-stone-900 mb-2">Płatność przyjęta!</h3>
+                  <p className="text-stone-500 text-sm">Zapisujemy usługi w Twoim budżecie...</p>
+                </>
+             )}
+          </div>
+        )}
+
         <div className="flex flex-col h-full">
           
           <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
             <h2 className="text-lg font-bold text-stone-900 flex items-center gap-2">
-              <ShoppingBag size={20} /> Twój Planer
+              <ShoppingBag size={20} /> Twój Koszyk
             </h2>
-            <button onClick={onClose} className="p-2 text-stone-400 hover:text-stone-600 rounded-full hover:bg-stone-50 transition-colors">
+            <button onClick={onClose} disabled={isPaying} className="p-2 text-stone-400 hover:text-stone-600 rounded-full hover:bg-stone-50 transition-colors disabled:opacity-50">
               <X size={20} />
             </button>
           </div>
@@ -221,12 +310,13 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
                             onClick={() => removeItem(item)}
                             className="text-stone-300 hover:text-rose-500 p-1 rounded transition-colors"
                             title="Usuń z koszyka"
+                            disabled={isPaying}
                         >
                             <Trash2 size={16} />
                         </button>
                     </div>
                     {item.price ? (
-                        <p className="text-sm text-stone-500 mt-1">{item.price} PLN <span className="text-xs text-stone-400">(orientacyjnie)</span></p>
+                        <p className="text-sm text-stone-500 mt-1">{item.price} PLN <span className="text-xs text-stone-400"></span></p>
                     ) : (
                         <p className="text-sm text-stone-400 mt-1 italic">Cena do uzgodnienia</p>
                     )}
@@ -243,16 +333,24 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
              </div>
              {items.length > 0 && (
                <div className="flex justify-between items-center mb-4 text-sm text-stone-500">
-                  <span>Suma (szacunkowa):</span>
-                  <span>~ {calculateTotal()} PLN</span>
+                  <span>Suma do zapłaty:</span>
+                  <span className="text-lg font-bold text-stone-900">{calculateTotal()} PLN</span>
                </div>
              )}
-             <Button className="w-full h-12 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold shadow-lg shadow-stone-900/20" onClick={() => {
-                 onClose();
-                 navigate("/kontakt");
-             }}>
-                <CalendarCheck className="mr-2 h-5 w-5" /> Zapytaj o dostępność
+             <Button 
+                className="w-full h-12 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold shadow-lg shadow-stone-900/20 transition-all active:scale-[0.98]" 
+                onClick={handleCheckout}
+                disabled={items.length === 0 || isPaying}
+             >
+                {isPaying ? (
+                    <><Loader2 className="mr-2 h-5 w-5 animate-spin"/> Przetwarzanie...</>
+                ) : (
+                    <><CreditCard className="mr-2 h-5 w-5" /> Zrealizuj i zapłać</>
+                )}
              </Button>
+             <p className="text-[10px] text-center text-stone-400 mt-3 flex items-center justify-center gap-1">
+                <Lock className="h-3 w-3" /> Płatność zabezpieczona (Symulacja)
+             </p>
           </div>
 
         </div>

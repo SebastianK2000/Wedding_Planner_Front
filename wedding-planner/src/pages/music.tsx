@@ -1,14 +1,14 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Star, MapPin, Filter, Sparkles, Info, Heart, X, 
-  Calendar, ArrowLeft, Music as MusicIcon, Mic2, Speaker, Headphones, Check, PlayCircle, Loader2 
+  Star, MapPin, Sparkles, Heart, 
+  ArrowLeft, Music as MusicIcon, Mic2, Headphones, Check, PlayCircle, Loader2 
 } from "lucide-react";
 import api from "../lib/api";
 
@@ -31,9 +31,7 @@ function numberFmt(n: number) {
 
 type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "nazwa";
 
-function MusicDetailsPage({ item, onBack, onBook }: { item: MusicItem, onBack: () => void, onBook: () => void }) {
-  const [form, setForm] = useState({ date: "", hours: 10 });
-
+function MusicDetailsPage({ item, onBack, onAddToCart }: { item: MusicItem, onBack: () => void, onAddToCart: () => void }) {
   const features: string[] = [
     "Własne nagłośnienie",
     "Oświetlenie parkietu",
@@ -43,7 +41,7 @@ function MusicDetailsPage({ item, onBack, onBook }: { item: MusicItem, onBack: (
   ];
 
   const TypeIcon = item.type.toLowerCase().includes("dj") ? Headphones : Mic2;
-  const rating = item.rating || ((typeof item.id === 'number' ? item.id : item.name.length) % 5) / 10 + 4.5;
+  const rating = item.rating || 4.5;
 
   return (
     <div className="min-h-screen bg-white animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -95,17 +93,13 @@ function MusicDetailsPage({ item, onBack, onBook }: { item: MusicItem, onBack: (
           <div>
             <h2 className="text-2xl font-semibold mb-4 text-stone-900">O wykonawcy</h2>
             <p className="text-lg text-stone-600 leading-relaxed">{item.desc || "Brak opisu wykonawcy."}</p>
-            <p className="mt-4 text-stone-600">
-              Zapewniamy profesjonalne nagłośnienie i oświetlenie. Nasz repertuar jest dopasowywany do gości, 
-              aby parkiet był pełny do białego rana.
-            </p>
           </div>
 
           <div>
             <h2 className="text-2xl font-semibold mb-6 text-stone-900">W ofercie</h2>
             <div className="grid grid-cols-2 gap-4">
-              {features.map((f: string, i: number) => (
-                <div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-stone-50 text-stone-700 transition-colors hover:bg-stone-100">
+              {features.map((f, i) => (
+                <div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-stone-50 text-stone-700">
                   <Check className="h-5 w-5 text-accent-500"/> <span className="font-medium">{f}</span>
                 </div>
               ))}
@@ -129,45 +123,18 @@ function MusicDetailsPage({ item, onBack, onBook }: { item: MusicItem, onBack: (
             <div className="flex items-end justify-between mb-6">
                <div>
                  <span className="text-3xl font-bold text-stone-900">{numberFmt(item.priceFrom)} zł</span>
-                 <span className="text-stone-500 text-sm"> / za 10h</span>
                </div>
                <div className="flex items-center gap-1 text-sm font-medium">
                  <Star className="h-4 w-4 fill-stone-900" /> {rating.toFixed(1)}
                </div>
             </div>
-
             <div className="space-y-4 mb-6">
-              <div className="rounded-xl border border-stone-200 overflow-hidden">
-                 <div className="border-b border-stone-200 p-3 bg-stone-50">
-                   <label className="block text-xs font-semibold uppercase text-stone-500 mb-1">Data wesela</label>
-                   <input 
-                      type="date" 
-                      className="w-full bg-transparent text-sm outline-none cursor-pointer" 
-                      value={form.date} 
-                      onChange={(e)=>setForm({...form, date: e.target.value})} 
-                   />
-                 </div>
-                 <div className="p-3 bg-white">
-                   <label className="block text-xs font-semibold uppercase text-stone-500 mb-1">Czas trwania (h)</label>
-                   <input 
-                      type="number" 
-                      min={1} 
-                      max={12}
-                      value={form.hours} 
-                      onChange={(e)=>setForm({...form, hours: Number(e.target.value)})} 
-                      className="w-full bg-transparent text-sm outline-none" 
-                   />
-                 </div>
-              </div>
-
-              <Button onClick={onBook} size="lg" className="w-full h-14 text-lg rounded-xl bg-accent-500 hover:bg-accent-600 shadow-lg shadow-accent-200">
-                Zapytaj o termin
+              <Button onClick={onAddToCart} size="lg" className="w-full h-14 text-lg rounded-xl bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-200">
+                Dodaj do koszyka
               </Button>
-              <p className="text-center text-xs text-stone-400">Niezobowiązujące zapytanie.</p>
             </div>
           </div>
         </div>
-
       </div>
     </div>
   )
@@ -175,15 +142,11 @@ function MusicDetailsPage({ item, onBack, onBook }: { item: MusicItem, onBack: (
 
 export default function MusicPro() {
   const [q, setQ] = useState("");
-  const [city, setCity] = useState<string>("Wszystkie");
-  const [mtype, setMtype] = useState<string>("Wszystkie");
+  const [city, setCity] = useState("Wszystkie");
+  const [mtype, setMtype] = useState("Wszystkie");
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 20000]);
   const [sort, setSort] = useState<SortKey>("rekomendowane");
-  
-  const [selectedId, setSelectedId] = useState<string | number | null>(null); 
   const [viewDetailsId, setViewDetailsId] = useState<string | number | null>(null);
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-
   const [musicList, setMusicList] = useState<MusicItem[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -192,54 +155,46 @@ export default function MusicPro() {
       setLoading(true);
       try {
         const response = await api.get("/music/");
-        console.log("Dane muzyków z API:", response.data);
-
-        const mapped: MusicItem[] = response.data.map((m: any) => {
-            let typeName = "Zespół";
-            if (m.name && m.name.toLowerCase().includes("dj")) typeName = "DJ";
-            else if (m.name && m.name.toLowerCase().includes("quartet")) typeName = "Kwartet";
-
-            return {
-                id: m.id,
-                name: m.name,
-                city: m.city || "Cała Polska", 
-                type: typeName, 
-                priceFrom: Number(m.pricefrom) || Number(m.price) || 4000,
-                img: m.imageurl || "https://images.unsplash.com/photo-1516280440614-6697288d5d38?q=80&w=1200&auto=format&fit=crop",
-                desc: m.description || "Profesjonalna oprawa muzyczna Twojego wesela.",
-                rating: Number(m.rating) || undefined 
-            };
-        });
-
+        const mapped: MusicItem[] = response.data.map((m: any) => ({
+            id: m.id,
+            name: m.name,
+            city: m.city || "Cała Polska", 
+            type: m.name?.toLowerCase().includes("dj") ? "DJ" : "Zespół", 
+            priceFrom: Number(m.pricefrom) || Number(m.price) || 4000,
+            img: m.imageurl || "https://images.unsplash.com/photo-1516280440614-6697288d5d38?q=80&w=1200&auto=format&fit=crop",
+            desc: m.description || "Profesjonalna oprawa muzyczna.",
+            rating: Number(m.rating) || 4.5
+        }));
         setMusicList(mapped);
-      } catch (error) {
-        console.error("Błąd pobierania muzyków:", error);
-      } finally {
-        setLoading(false);
-      }
+      } catch (e) { console.error(e); } finally { setLoading(false); }
     };
-
     fetchMusic();
   }, []);
 
-  const [shortlist, setShortlist] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("wp_music_shortlist") || "[]");
-    } catch { return [] }
-  });
-  
   const [minPrice, maxPrice] = useMemo(() => {
      if (musicList.length === 0) return [0, 20000];
      const prices = musicList.map(m => m.priceFrom);
      return [Math.min(...prices), Math.max(...prices)];
   }, [musicList]);
 
-  useEffect(() => { 
-      if(musicList.length > 0) setPriceRange([minPrice, maxPrice]) 
-  }, [minPrice, maxPrice, musicList.length]);
+  useEffect(() => { if(musicList.length > 0) setPriceRange([minPrice, maxPrice]) }, [minPrice, maxPrice, musicList.length]);
 
   const types = useMemo(() => ["Wszystkie", ...Array.from(new Set(musicList.map(m => m.type)))], [musicList]);
   const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(musicList.map(m => m.city)))], [musicList]);
+
+  const addToCart = (item: MusicItem) => {
+    try {
+      const raw = localStorage.getItem(CART_KEY);
+      const prev = raw ? JSON.parse(raw) : [];
+      if (!prev.find((p: any) => String(p.id) === String(item.id))) {
+        localStorage.setItem(CART_KEY, JSON.stringify([...prev, item]));
+        window.dispatchEvent(new Event("wp:cart:update"));
+        alert("Dodano wykonawcę do koszyka!");
+      } else {
+        alert("Wykonawca jest już w koszyku.");
+      }
+    } catch (e) { console.error(e) }
+  };
 
   const filtered = useMemo(() => {
     const items = musicList.filter((m) => {
@@ -255,152 +210,59 @@ export default function MusicPro() {
       case "cena-rosn": items.sort((a, b) => a.priceFrom - b.priceFrom); break;
       case "cena-malej": items.sort((a, b) => b.priceFrom - a.priceFrom); break;
       case "nazwa": items.sort((a, b) => a.name.localeCompare(b.name, "pl")); break;
+      default: items.sort((a, b) => (b.rating || 0) - (a.rating || 0));
     }
     return items;
   }, [musicList, q, city, mtype, priceRange, sort]);
 
-  useEffect(() => { localStorage.setItem("wp_music_shortlist", JSON.stringify(shortlist)); }, [shortlist]);
-  
+  const [shortlist, setShortlist] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("wp_music_shortlist") || "[]");
+    } catch { return [] }
+  });
+
   const toggleShortlist = (e: React.MouseEvent, id: string | number) => {
     e.stopPropagation();
     const idStr = String(id);
     setShortlist((s) => (s.includes(idStr) ? s.filter((x) => x !== idStr) : [...s, idStr]));
   };
 
-  const selectedItem = useMemo(() => musicList.find(m => m.id === selectedId), [selectedId, musicList]);
   const detailsItem = useMemo(() => musicList.find(m => m.id === viewDetailsId), [viewDetailsId, musicList]);
-  const [bookingForm, setBookingForm] = useState({ date: "", notes: "" });
 
   if (viewDetailsId && detailsItem) {
-    return (
-      <>
-        <MusicDetailsPage 
-           item={detailsItem} 
-           onBack={() => setViewDetailsId(null)} 
-           onBook={() => setSelectedId(detailsItem.id)}
-        />
-        {selectedId && <BookingSheet selectedItem={selectedItem} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
-      </>
-    )
+    return <MusicDetailsPage item={detailsItem} onBack={() => setViewDetailsId(null)} onAddToCart={() => addToCart(detailsItem)} />;
   }
 
   return (
     <div className="min-h-screen bg-stone-50/50 p-4 md:p-8 font-sans text-stone-800">
       <div className="mx-auto max-w-7xl space-y-8">
-        
         <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
              <div className="inline-flex items-center gap-1.5 rounded-full bg-purple-100 px-3 py-1 text-xs font-semibold text-purple-700">
               <MusicIcon className="h-3.5 w-3.5" /> Oprawa muzyczna
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-stone-900 md:text-4xl">
-              Zespoły i DJ-e
-            </h1>
-            <p className="max-w-xl text-stone-500">
-              Wybierz profesjonalistów, którzy porwą Twoich gości do tańca.
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-stone-900 md:text-4xl">Zespoły i DJ-e</h1>
           </div>
           <div className="flex gap-4">
              <StatCard label="Artystów" value={String(musicList.length)} />
-             <StatCard label="Śr. Cena" value={musicList.length > 0 ? numberFmt(Math.round(musicList.reduce((acc, curr) => acc + curr.priceFrom, 0) / musicList.length)) : "-"} />
+             <StatCard label="Od zł" value={musicList.length > 0 ? numberFmt(minPrice) : "-"} />
           </div>
         </header>
 
-        <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm md:hidden">
-           <span className="text-sm font-medium text-stone-600">Wyniki: {filtered.length}</span>
-           <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" className="rounded-full border-stone-200"><Filter className="mr-2 h-4 w-4"/> Filtry</Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="h-[85vh] rounded-t-[2rem] flex flex-col">
-                <SheetHeader className="mb-2 text-left"><SheetTitle>Filtrowanie</SheetTitle></SheetHeader>
-                
-                <div className="flex-1 overflow-y-auto px-1 py-4 space-y-5">
-                   <div className="space-y-2">
-                      <label className="text-sm font-medium text-stone-700">Nazwa</label>
-                      <Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="np. The Band..." className="h-11 rounded-xl bg-stone-50" />
-                   </div>
-                   <div className="space-y-2">
-                      <label className="text-sm font-medium text-stone-700">Lokalizacja</label>
-                      <Select value={city} onValueChange={setCity}>
-                        <SelectTrigger className="h-11 rounded-xl bg-stone-50"><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                          {cities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                   </div>
-                   <div className="space-y-2">
-                      <label className="text-sm font-medium text-stone-700">Rodzaj</label>
-                      <Select value={mtype} onValueChange={setMtype}>
-                        <SelectTrigger className="h-11 rounded-xl bg-stone-50"><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                          {types.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                   </div>
-                   <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-stone-600">Cena od</span>
-                        <span className="font-medium">{numberFmt(priceRange[0])} zł</span>
-                      </div>
-                      <Slider value={[priceRange[0]]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceRange([v, priceRange[1]])} className="py-2" />
-                   </div>
-                   <div className="space-y-2">
-                      <label className="text-sm font-medium text-stone-700">Sortowanie</label>
-                      <Select value={sort} onValueChange={(v)=>setSort(v as SortKey)}>
-                        <SelectTrigger className="h-11 rounded-xl bg-stone-50"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="rekomendowane">Rekomendowane</SelectItem>
-                          <SelectItem value="cena-rosn">Cena: rosnąco</SelectItem>
-                          <SelectItem value="cena-malej">Cena: malejąco</SelectItem>
-                          <SelectItem value="nazwa">Nazwa A-Z</SelectItem>
-                        </SelectContent>
-                      </Select>
-                   </div>
-                </div>
-
-                <SheetFooter className="p-4 border-t border-stone-200">
-                    <Button onClick={() => setMobileFiltersOpen(false)} className="w-full h-12 rounded-xl bg-stone-900 text-white hover:bg-stone-800">Pokaż {filtered.length} wyników</Button>
-                </SheetFooter>
-              </SheetContent>
-           </Sheet>
-        </div>
-
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          
           <aside className="hidden lg:col-span-3 lg:block">
             <div className="sticky top-8 space-y-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
-              <div className="flex items-center justify-between">
-                 <h2 className="font-semibold text-stone-900">Filtry</h2>
-                 {(q || mtype !== "Wszystkie" || city !== "Wszystkie") && <Button variant="ghost" className="h-auto p-0 text-xs text-rose-600" onClick={()=>{setQ(""); setMtype("Wszystkie"); setCity("Wszystkie")}}>Reset</Button>}
-              </div>
-
+              <h2 className="font-semibold text-stone-900">Filtry</h2>
               <div className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Nazwa</label>
-                  <Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="np. The Band..." className="bg-stone-50 border-transparent focus:bg-white rounded-xl" />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Lokalizacja</label>
-                  <Select value={city} onValueChange={setCity}>
-                    <SelectTrigger className="bg-stone-50 border-transparent focus:bg-white rounded-xl"><SelectValue/></SelectTrigger>
-                    <SelectContent>
-                      {cities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Rodzaj</label>
-                  <Select value={mtype} onValueChange={setMtype}>
-                    <SelectTrigger className="bg-stone-50 border-transparent focus:bg-white rounded-xl"><SelectValue/></SelectTrigger>
-                    <SelectContent>
-                      {types.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
+                <Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Szukaj..." className="bg-stone-50 border-transparent rounded-xl" />
+                <Select value={city} onValueChange={setCity}>
+                  <SelectTrigger className="bg-stone-50 border-transparent rounded-xl"><SelectValue/></SelectTrigger>
+                  <SelectContent>{cities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={mtype} onValueChange={setMtype}>
+                  <SelectTrigger className="bg-stone-50 border-transparent rounded-xl"><SelectValue/></SelectTrigger>
+                  <SelectContent>{types.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                </Select>
                 <div className="space-y-3">
                     <div className="flex justify-between text-sm">
                      <span className="text-stone-600">Cena od</span>
@@ -408,7 +270,6 @@ export default function MusicPro() {
                     </div>
                     <Slider value={[priceRange[0]]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceRange([v, priceRange[1]])} className="py-2" />
                 </div>
-
                 <div className="space-y-2 pt-2 border-t border-stone-100">
                   <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Sortowanie</label>
                   <Select value={sort} onValueChange={(v)=>setSort(v as SortKey)}>
@@ -426,95 +287,34 @@ export default function MusicPro() {
           </aside>
 
           <section className="lg:col-span-9">
-             {loading ? (
-                 <div className="flex h-64 flex-col items-center justify-center">
-                     <Loader2 className="h-10 w-10 animate-spin text-purple-500 mb-4" />
-                     <p className="text-stone-500">Stroję instrumenty...</p>
-                 </div>
-             ) : filtered.length === 0 ? (
-               <div className="flex h-64 flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white text-center">
-                  <div className="rounded-full bg-stone-100 p-4"><MusicIcon className="h-6 w-6 text-stone-400" /></div>
-                  <h3 className="mt-4 text-lg font-semibold text-stone-900">Brak wyników</h3>
-                  <p className="text-stone-500">Zmień kryteria wyszukiwania.</p>
-               </div>
-             ) : (
+             {loading ? <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-purple-500" /></div> : (
                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((item) => (
-                  <Card
-                    key={item.id}
-                    className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border-0 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
-                  >
+                  <Card key={item.id} className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border-0 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                     <div className="relative aspect-[4/3] w-full overflow-hidden">
-                      <img
-                        src={item.img}
-                        alt={item.name}
-                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                      />
-
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-60 pointer-events-none" />
-
-                      <div className="absolute top-3 right-3 z-50">
-                        <button
-                          onClick={(e) => toggleShortlist(e, item.id)}
-                          className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-300 ${
-                            shortlist.includes(String(item.id))
-                              ? "bg-white text-rose-500 shadow-lg scale-110"
-                              : "bg-black/50 text-white backdrop-blur-sm hover:bg-white hover:text-rose-500"
-                          }`}
-                        >
-                          <Heart
-                            className={`h-5 w-5 ${
-                              shortlist.includes(String(item.id)) ? "fill-current" : ""
-                            }`}
-                          />
+                      <img src={item.img} alt={item.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                      <div className="absolute top-3 right-3 z-10">
+                        <button onClick={(e)=>toggleShortlist(e, item.id)} className={`flex h-9 w-9 items-center justify-center rounded-full backdrop-blur-md transition-all ${shortlist.includes(String(item.id)) ? "bg-rose-500 text-white" : "bg-white/30 text-white hover:bg-white/50"}`}>
+                          <Heart className={`h-5 w-5 ${shortlist.includes(String(item.id)) ? "fill-current" : ""}`} />
                         </button>
                       </div>
-
-                      <div className="absolute bottom-3 left-4 z-10 text-white">
-                        <p className="text-xs font-medium text-white/80 uppercase tracking-wider">
-                          {item.type}
-                        </p>
-                        <p className="text-xl font-bold">{numberFmt(item.priceFrom)} zł</p>
-                      </div>
+                      <div className="absolute bottom-3 left-4 z-10 text-white"><p className="text-xl font-bold">{numberFmt(item.priceFrom)} zł</p></div>
                     </div>
-
                     <CardContent className="flex-1 p-5">
-                      <div className="mb-2">
-                        <h3 className="text-lg font-bold text-stone-900 leading-tight">
-                          {item.name}
-                        </h3>
-                        <p className="mt-1 flex items-center text-sm text-stone-500">
-                          <MapPin className="mr-1 h-3.5 w-3.5 text-stone-400" /> {item.city}
-                        </p>
-                      </div>
-                      <p className="text-xs text-stone-500 line-clamp-2">{item.desc}</p>
+                      <h3 className="text-lg font-bold text-stone-900 leading-tight">{item.name}</h3>
+                      <p className="mt-1 flex items-center text-sm text-stone-500">{item.city} • {item.type}</p>
                     </CardContent>
-
                     <CardFooter className="p-5 pt-0 gap-3">
-                      <Button
-                        onClick={() => setViewDetailsId(item.id)}
-                        variant="outline"
-                        className="flex-1 rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50"
-                      >
-                        Szczegóły
-                      </Button>
-                      <Button
-                        onClick={() => setSelectedId(item.id)}
-                        className="flex-1 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg shadow-stone-900/20"
-                      >
-                        Zapytaj
-                      </Button>
+                        <Button onClick={() => setViewDetailsId(item.id)} variant="outline" className="flex-1 rounded-xl" size="sm">Szczegóły</Button>
+                        <Button onClick={()=>addToCart(item)} className="flex-1 rounded-xl bg-stone-900 text-white shadow-lg shadow-stone-900/20" size="sm">Dodaj do koszyka</Button>
                     </CardFooter>
                   </Card>
                 ))}
-                
-               </div>
-             )}
+              </div>
+            )}
           </section>
         </div>
       </div>
-
-      {selectedId && <BookingSheet selectedItem={selectedItem} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
     </div>
   );
 }
@@ -526,75 +326,4 @@ function StatCard({ label, value }: { label: string, value: string }) {
        <span className="text-xs font-medium text-stone-400 uppercase tracking-wider">{label}</span>
     </div>
   )
-}
-
-function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }: any) {
-    if (!selectedItem) return null;
-    
-    const handleAddToCart = () => {
-        try {
-            const raw = localStorage.getItem(CART_KEY);
-            const prev: MusicItem[] = raw ? JSON.parse(raw) : [];
-            const exists = prev.some((p) => String(p.id) === String(selectedItem.id));
-            if (!exists) {
-                const next = [...prev, selectedItem];
-                localStorage.setItem(CART_KEY, JSON.stringify(next));
-            }
-        } catch (e) { console.error(e) }
-        onClose();
-    }
-
-    return (
-        <Sheet open={!!selectedItem} onOpenChange={(o)=> !o && onClose()}>
-        <SheetContent side="right" className="w-full sm:max-w-md border-l-0 shadow-2xl p-0 sm:rounded-l-[2rem] overflow-hidden flex flex-col">
-           <div className="relative h-48 shrink-0">
-               <img src={selectedItem.img} className="h-full w-full object-cover" />
-               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-               <div className="absolute bottom-4 left-6 right-6 text-white">
-                   <h3 className="text-xl font-bold">{selectedItem.name}</h3>
-                   <p className="text-sm text-white/80 flex items-center gap-1"><Speaker className="h-3.5 w-3.5"/> {selectedItem.type}</p>
-               </div>
-               <button onClick={onClose} className="absolute top-4 right-4 rounded-full bg-black/20 p-2 text-white backdrop-blur-md hover:bg-black/40"><X className="h-5 w-5"/></button>
-           </div>
-           
-           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-               <div>
-                   <h4 className="text-lg font-semibold mb-4 flex items-center gap-2"><Calendar className="h-5 w-5 text-rose-500"/> Sprawdź termin</h4>
-                   <div className="space-y-4">
-                       <div className="space-y-1.5">
-                           <label className="text-sm font-medium text-stone-700">Planowana data</label>
-                           <Input type="date" className="h-12 rounded-xl bg-stone-50 border-stone-200" value={bookingForm.date} onChange={(e)=>setBookingForm({...bookingForm, date: e.target.value})} />
-                       </div>
-                        <div className="space-y-1.5">
-                           <label className="text-sm font-medium text-stone-700">Dodatkowe pytania</label>
-                           <textarea 
-                            className="w-full rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm min-h-[100px] focus:outline-none focus:ring-2 focus:ring-stone-900"
-                            placeholder="np. Czy gracie disco-polo?"
-                            value={bookingForm.notes}
-                            onChange={(e)=>setBookingForm({...bookingForm, notes: e.target.value})}
-                           />
-                       </div>
-                   </div>
-               </div>
-
-               <div className="rounded-2xl bg-stone-900 p-5 text-white">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="text-stone-400 text-sm">Budżet orientacyjny</span>
-                        <Info className="h-4 w-4 text-stone-500" />
-                    </div>
-                    <div className="text-3xl font-bold">{numberFmt(selectedItem.priceFrom)} zł</div>
-               </div>
-           </div>
-
-           <SheetFooter className="p-6 pt-2 bg-white border-t border-stone-100 grid grid-cols-2 gap-3">
-               <Button size="lg" variant="outline" className="w-full rounded-xl h-14" onClick={handleAddToCart}>
-                   <Heart className="h-4 w-4 mr-2" /> Dodaj
-               </Button>
-               <Button size="lg" className="w-full rounded-xl bg-rose-600 hover:bg-rose-700 h-14 text-lg shadow-lg shadow-rose-900/20">
-                   Wyślij
-               </Button>
-           </SheetFooter>
-        </SheetContent>
-        </Sheet>
-    )
 }

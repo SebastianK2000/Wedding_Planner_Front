@@ -2,46 +2,40 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Star, MapPin, Filter, Sparkles, Info, Heart, X, 
-  Calendar, ArrowLeft, Car, Bus, Check, Users, Loader2 
+  Star, MapPin, Sparkles, Heart, 
+  ArrowLeft, Car, Users, Check, Loader2 
 } from "lucide-react";
 import api from "../lib/api";
 
-export interface TransportVendor {
+export interface TransportItem {
   id: string | number;
   name: string;
-  type: string;
   city: string;
-  priceFrom: number;
   capacity: number;
-  img: string;
-  desc: string;
-  rating?: number;
-  features?: string[];
+  priceFrom: number;
+  rating: number;
+  image: string;
+  description: string;
+  features: string[];
 }
 
-const CART_KEY_TRANSPORT = "wp_cart_transport";
+const CART_KEY = "wp_cart_transport";
 
 function numberFmt(n: number) {
   return new Intl.NumberFormat("pl-PL").format(n);
 }
 
-type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "miejsca" | "nazwa";
+type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "pojemnosc";
 
-function TransportDetailsPage({ item, onBack, onBook }: { item: TransportVendor, onBack: () => void, onBook: () => void }) {
-  const [form, setForm] = useState({ date: "", route: "" });
-
+function TransportDetailsPage({ item, onBack, onAddToCart }: { item: TransportItem, onBack: () => void, onAddToCart: () => void }) {
   const features = item.features && item.features.length > 0 
     ? item.features 
-    : ["Kierowca w cenie", "Dekoracja pojazdu", "Klimatyzacja", "Dojazd do Pana Młodego", "Szampan dla Pary Młodej"];
-    
-  const rating = item.rating || ((typeof item.id === 'number' ? item.id : item.name.length) % 5) / 10 + 4.5;
+    : ["Klimatyzacja", "Skórzana tapicerka", "Dekoracja auta", "Elegancki kierowca"];
 
   return (
     <div className="min-h-screen bg-white animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -54,127 +48,78 @@ function TransportDetailsPage({ item, onBack, onBook }: { item: TransportVendor,
            <Button variant="outline" className="rounded-full"><Heart className="h-4 w-4 mr-2" /> Zapisz</Button>
         </div>
       </div>
-
       <div className="relative h-[50vh] w-full md:h-[60vh]">
-        <img src={item.img} alt={item.name} className="h-full w-full object-cover" />
-        <div className="absolute inset-0 bg-gradient-to-t from-stone-900/80 via-stone-900/20 to-transparent" />
+        <img src={item.image} alt={item.name} className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-t from-stone-900/80 via-transparent to-transparent" />
         <div className="absolute bottom-0 left-0 p-6 md:p-12 text-white w-full max-w-7xl mx-auto">
-          <div className="flex items-center gap-2 mb-4">
-             <Badge className="bg-blue-500 hover:bg-blue-600 border-0">Premium</Badge>
-             <Badge variant="outline" className="text-white border-white/30 backdrop-blur-md">{item.type}</Badge>
-          </div>
+          <Badge className="bg-blue-500 hover:bg-blue-600 mb-4 border-0">Premium Transport</Badge>
           <h1 className="text-4xl md:text-6xl font-bold mb-2">{item.name}</h1>
           <div className="flex items-center gap-4 text-lg font-medium opacity-90">
             <span className="flex items-center gap-1"><MapPin className="h-5 w-5" /> {item.city}</span>
             <span>•</span>
-            <span className="flex items-center gap-1"><Users className="h-5 w-5" /> {item.capacity ? `${item.capacity} miejsc` : "Auto osobowe"}</span>
-             <span>•</span>
-            <span className="flex items-center gap-1"><Star className="h-5 w-5 fill-yellow-400 text-yellow-400" /> {rating.toFixed(1)}</span>
+            <span className="flex items-center gap-1"><Star className="h-5 w-5 fill-yellow-400 text-yellow-400" /> {item.rating.toFixed(1)}</span>
           </div>
         </div>
       </div>
-
       <div className="mx-auto max-w-7xl px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-12">
         <div className="lg:col-span-2 space-y-10">
           <div className="flex gap-6 border-b border-stone-100 pb-8">
              <div className="space-y-1">
-               <span className="text-sm text-stone-500">Cena od</span>
+               <span className="text-sm text-stone-500">Wynajem od</span>
                <div className="font-semibold text-lg flex items-center gap-2">
                  <Sparkles className="h-5 w-5 text-stone-400"/> {numberFmt(item.priceFrom)} zł
                </div>
             </div>
             <div className="w-px bg-stone-200 h-12 self-center"/>
             <div className="space-y-1">
-               <span className="text-sm text-stone-500">Pojemność</span>
+               <span className="text-sm text-stone-500">Miejsca</span>
                <div className="font-semibold text-lg flex items-center gap-2">
-                 <Users className="h-5 w-5 text-stone-400"/> {item.capacity || "4"} os.
+                 <Users className="h-5 w-5 text-stone-400"/> do {item.capacity} os.
                </div>
             </div>
           </div>
-
           <div>
             <h2 className="text-2xl font-semibold mb-4 text-stone-900">O pojeździe</h2>
-            <p className="text-lg text-stone-600 leading-relaxed">{item.desc || "Brak opisu pojazdu."}</p>
-            <p className="mt-4 text-stone-600">
-              Gwarantujemy czystość, punktualność i profesjonalną obsługę kierowcy. 
-              Pojazd jest zawsze przygotowany na najwyższym poziomie, aby uświetnić Wasz dzień.
-            </p>
+            <p className="text-lg text-stone-600 leading-relaxed">{item.description || "Luksusowy transport na Twoje wesele."}</p>
           </div>
-
           <div>
-            <h2 className="text-2xl font-semibold mb-6 text-stone-900">W cenie wynajmu</h2>
+            <h2 className="text-2xl font-semibold mb-6 text-stone-900">Udogodnienia</h2>
             <div className="grid grid-cols-2 gap-4">
-              {features.map((f: string, i: number) => (
-                <div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-stone-50 text-stone-700 transition-colors hover:bg-stone-100">
-                  <Check className="h-5 w-5 text-accent-500"/> <span className="font-medium">{f}</span>
+              {features.map((f, i) => (
+                <div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-stone-50 text-stone-700">
+                  <Check className="h-5 w-5 text-blue-500"/> <span className="font-medium">{f}</span>
                 </div>
               ))}
             </div>
           </div>
         </div>
-
         <div className="relative">
           <div className="sticky top-32 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-xl shadow-stone-200/50">
             <div className="flex items-end justify-between mb-6">
-               <div>
-                 <span className="text-3xl font-bold text-stone-900">{numberFmt(item.priceFrom)} zł</span>
-                 <span className="text-stone-500 text-sm"> / wynajem</span>
-               </div>
-               <div className="flex items-center gap-1 text-sm font-medium">
-                 <Star className="h-4 w-4 fill-stone-900" /> {rating.toFixed(1)}
-               </div>
+               <div><span className="text-3xl font-bold text-stone-900">{numberFmt(item.priceFrom)} zł</span></div>
+               <div className="flex items-center gap-1 text-sm font-medium"><Star className="h-4 w-4 fill-stone-900" /> {item.rating.toFixed(1)}</div>
             </div>
-
             <div className="space-y-4 mb-6">
-              <div className="rounded-xl border border-stone-200 overflow-hidden">
-                 <div className="border-b border-stone-200 p-3 bg-stone-50">
-                   <label className="block text-xs font-semibold uppercase text-stone-500 mb-1">Data ślubu</label>
-                   <input 
-                      type="date" 
-                      className="w-full bg-transparent text-sm outline-none cursor-pointer" 
-                      value={form.date} 
-                      onChange={(e)=>setForm({...form, date: e.target.value})} 
-                   />
-                 </div>
-                 <div className="p-3 bg-white">
-                   <label className="block text-xs font-semibold uppercase text-stone-500 mb-1">Trasa (orientacyjnie)</label>
-                   <input 
-                      type="text" 
-                      placeholder="np. Kraków - Wieliczka"
-                      value={form.route} 
-                      onChange={(e)=>setForm({...form, route: e.target.value})} 
-                      className="w-full bg-transparent text-sm outline-none" 
-                   />
-                 </div>
-              </div>
-
-              <Button onClick={onBook} size="lg" className="w-full h-14 text-lg rounded-xl bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">
-                Sprawdź dostępność
+              <Button onClick={onAddToCart} size="lg" className="w-full h-14 text-lg rounded-xl bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">
+                Dodaj do koszyka
               </Button>
-              <p className="text-center text-xs text-stone-400">Niezobowiązujące zapytanie.</p>
             </div>
           </div>
         </div>
-
       </div>
     </div>
-  )
+  );
 }
 
 export default function TransportPro() {
   const [q, setQ] = useState("");
   const [city, setCity] = useState("Wszystkie");
-  const [vType, setVType] = useState<string>("Wszystkie");
-  const [priceRange, setPriceRange] = useState<[number, number]>([0, 5000]);
-  const [minSeats, setMinSeats] = useState<number>(0);
+  const [capacity, setCapacity] = useState([0]);
+  const [priceFrom, setPriceFrom] = useState(0);
+  const [priceTo, setPriceTo] = useState(15000);
   const [sort, setSort] = useState<SortKey>("rekomendowane");
-  const [onlyTop, setOnlyTop] = useState(false);
-
-  const [selectedId, setSelectedId] = useState<string | number | null>(null); 
   const [viewDetailsId, setViewDetailsId] = useState<string | number | null>(null);
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-
-  const [transportList, setTransportList] = useState<TransportVendor[]>([]);
+  const [items, setItems] = useState<TransportItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -182,245 +127,138 @@ export default function TransportPro() {
       setLoading(true);
       try {
         const response = await api.get("/transport/");
-        console.log("Dane transportu z API:", response.data);
-
-        const mapped: TransportVendor[] = response.data.map((t: any) => {
-            const pseudoId = typeof t.id === 'number' ? t.id : 1;
-            const generatedRating = 4.5 + ((pseudoId * 4) % 5) / 10;
-
-            let typeName = "Samochód";
-            const nameLower = t.name ? t.name.toLowerCase() : "";
-            
-            if (nameLower.includes("bus") || nameLower.includes("autokar")) typeName = "Autobus";
-            else if (nameLower.includes("limuzyna") || nameLower.includes("limo")) typeName = "Limuzyna";
-            else if (nameLower.includes("zabyt") || nameLower.includes("retro") || nameLower.includes("klasyk")) typeName = "Zabytek";
-            else if (nameLower.includes("sport") || nameLower.includes("mustang") || nameLower.includes("ferrari")) typeName = "Sportowe";
-
-            return {
-                id: t.id,
-                name: t.name,
-                type: typeName,
-                city: t.city || "Cała Polska",
-                priceFrom: Number(t.pricefrom) || Number(t.price) || 1000,
-                capacity: Number(t.capacity) || 4,
-                img: t.imageurl || "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?q=80&w=1200&auto=format&fit=crop",
-                desc: t.description || "Luksusowy transport na Twój ślub.",
-                rating: generatedRating,
-                features: []
-            };
-        });
-
-        setTransportList(mapped);
-      } catch (error) {
-        console.error("Błąd pobierania transportu:", error);
-      } finally {
-        setLoading(false);
-      }
+        const mapped = response.data.map((t: any) => ({
+          id: t.id,
+          name: t.name || "Auto do ślubu",
+          city: t.city || "Cała Polska",
+          capacity: Number(t.capacity) || 4,
+          priceFrom: Number(t.pricefrom) || Number(t.price) || 1500,
+          rating: Number(t.rating) || 4.8,
+          image: t.imageurl || "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?q=80&w=1200&auto=format&fit=crop",
+          description: t.description || "",
+          features: Array.isArray(t.features) ? t.features : []
+        }));
+        setItems(mapped);
+      } catch (e) { console.error(e); } finally { setLoading(false); }
     };
-
     fetchTransport();
   }, []);
 
-  const [shortlist, setShortlist] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("wp_transport_shortlist") || "[]");
-    } catch { return [] }
-  });
-
   const [minPrice, maxPrice] = useMemo(() => {
-     if (transportList.length === 0) return [0, 5000];
-     const prices = transportList.map(t => t.priceFrom);
-     return [Math.min(...prices), Math.max(...prices)];
-  }, [transportList]);
+      if (items.length === 0) return [0, 15000];
+      const prices = items.map(i => i.priceFrom);
+      return [Math.min(...prices), Math.max(...prices)];
+  }, [items]);
 
-  useEffect(() => { 
-      if(transportList.length > 0) setPriceRange([minPrice, maxPrice]) 
-  }, [minPrice, maxPrice, transportList.length]);
+  useEffect(() => {
+    if (items.length > 0) {
+      setPriceFrom(minPrice);
+      setPriceTo(maxPrice);
+    }
+  }, [minPrice, maxPrice, items.length]);
 
-  const types = useMemo(() => ["Wszystkie", ...Array.from(new Set(transportList.map(t => t.type)))], [transportList]);
-  const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(transportList.map(t => t.city)))], [transportList]);
+  const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(items.map(i => i.city)))], [items]);
+
+  const addToCart = (item: TransportItem) => {
+    try {
+      const raw = localStorage.getItem(CART_KEY);
+      const prev = raw ? JSON.parse(raw) : [];
+      if (!prev.find((p: any) => String(p.id) === String(item.id))) {
+        localStorage.setItem(CART_KEY, JSON.stringify([...prev, item]));
+        window.dispatchEvent(new Event("wp:cart:update"));
+        alert("Dodano transport do koszyka!");
+      } else { alert("Ten pojazd jest już w Twoim koszyku."); }
+    } catch (e) { console.error(e) }
+  };
 
   const filtered = useMemo(() => {
-    const items = transportList.filter((t) => {
-      const hay = `${t.name} ${t.city} ${t.type} ${t.desc}`.toLowerCase();
-      const matchesText = q ? hay.includes(q.toLowerCase()) : true;
-      const matchesCity = city === "Wszystkie" ? true : t.city === city;
-      const matchesType = vType === "Wszystkie" ? true : t.type === vType;
-      const matchesPrice = t.priceFrom >= priceRange[0] && t.priceFrom <= priceRange[1];
-      const matchesSeats = minSeats > 0 ? (t.capacity ?? 0) >= minSeats : true;
-      const matchesTop = !onlyTop || (t.rating || 0) >= 4.7;
-
-      return matchesText && matchesCity && matchesType && matchesPrice && matchesSeats && matchesTop;
-    });
-
+    const result = items.filter((t) =>
+      (q ? t.name.toLowerCase().includes(q.toLowerCase()) : true) &&
+      (city === "Wszystkie" ? true : t.city === city) &&
+      t.capacity >= capacity[0] &&
+      (t.priceFrom >= priceFrom && t.priceFrom <= priceTo)
+    );
     switch (sort) {
-      case "cena-rosn": items.sort((a, b) => a.priceFrom - b.priceFrom); break;
-      case "cena-malej": items.sort((a, b) => b.priceFrom - a.priceFrom); break;
-      case "miejsca": items.sort((a, b) => (b.capacity ?? 0) - (a.capacity ?? 0)); break;
-      case "nazwa": items.sort((a, b) => a.name.localeCompare(b.name, "pl")); break;
+      case "cena-rosn": result.sort((a, b) => a.priceFrom - b.priceFrom); break;
+      case "cena-malej": result.sort((a, b) => b.priceFrom - a.priceFrom); break;
+      case "pojemnosc": result.sort((a, b) => b.capacity - a.capacity); break;
+      default: result.sort((a, b) => b.rating - a.rating);
     }
-    return items;
-  }, [transportList, q, city, vType, priceRange, minSeats, sort, onlyTop]);
+    return result;
+  }, [items, q, city, capacity, priceFrom, priceTo, sort]);
 
-  useEffect(() => { localStorage.setItem("wp_transport_shortlist", JSON.stringify(shortlist)); }, [shortlist]);
-  
+  const [shortlist, setShortlist] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("wp_transport_shortlist") || "[]"); } catch { return [] }
+  });
+
   const toggleShortlist = (e: React.MouseEvent, id: string | number) => {
     e.stopPropagation();
     const idStr = String(id);
-    setShortlist((s) => (s.includes(idStr) ? s.filter((x) => x !== idStr) : [...s, idStr]));
+    const newShortlist = shortlist.includes(idStr) ? shortlist.filter(x => x !== idStr) : [...shortlist, idStr];
+    setShortlist(newShortlist);
+    localStorage.setItem("wp_transport_shortlist", JSON.stringify(newShortlist));
   };
 
-  const selectedItem = useMemo(() => transportList.find(t => t.id === selectedId), [selectedId, transportList]);
-  const detailsItem = useMemo(() => transportList.find(t => t.id === viewDetailsId), [viewDetailsId, transportList]);
-  const [bookingForm, setBookingForm] = useState({ date: "", notes: "" });
+  const detailsItem = useMemo(() => items.find(i => i.id === viewDetailsId), [viewDetailsId, items]);
 
   if (viewDetailsId && detailsItem) {
-    return (
-      <>
-        <TransportDetailsPage 
-           item={detailsItem} 
-           onBack={() => setViewDetailsId(null)} 
-           onBook={() => setSelectedId(detailsItem.id)}
-        />
-        {selectedId && <BookingSheet selectedItem={selectedItem} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
-      </>
-    )
+    return <TransportDetailsPage item={detailsItem} onBack={() => setViewDetailsId(null)} onAddToCart={() => addToCart(detailsItem)} />;
   }
 
   return (
     <div className="min-h-screen bg-stone-50/50 p-4 md:p-8 font-sans text-stone-800">
       <div className="mx-auto max-w-7xl space-y-8">
-        
         <header className="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
           <div className="space-y-2">
              <div className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-              <Car className="h-3.5 w-3.5" /> Pojazdy do ślubu i dla gości
+              <Car className="h-3.5 w-3.5" /> Luksusowa flota
             </div>
-            <h1 className="text-3xl font-bold tracking-tight text-stone-900 md:text-4xl">
-              Transport Weselny
-            </h1>
-            <p className="max-w-xl text-stone-500">
-              Auta dla Pary Młodej, busy dla gości, limuzyny. Znajdź idealny środek transportu.
-            </p>
+            <h1 className="text-3xl font-bold tracking-tight text-stone-900 md:text-4xl">Transport</h1>
           </div>
           <div className="flex gap-4">
-             <StatCard label="Pojazdów" value={String(transportList.length)} />
-             <StatCard label="Śr. Cena" value={transportList.length > 0 ? numberFmt(Math.round(transportList.reduce((acc, curr) => acc + curr.priceFrom, 0) / transportList.length)) : "-"} />
+             <StatCard label="Pojazdów" value={String(items.length)} />
+             <StatCard label="Od zł" value={items.length > 0 ? numberFmt(minPrice) : "-"} />
           </div>
         </header>
-
-        <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm md:hidden">
-           <span className="text-sm font-medium text-stone-600">Wyniki: {filtered.length}</span>
-           <Sheet open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" className="rounded-full border-stone-200"><Filter className="mr-2 h-4 w-4"/> Filtry</Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="h-[85vh] rounded-t-[2rem] flex flex-col">
-                <SheetHeader className="mb-2 text-left"><SheetTitle>Filtrowanie</SheetTitle></SheetHeader>
-                
-                <div className="flex-1 overflow-y-auto px-1 py-4 space-y-5">
-                   <div className="space-y-2">
-                      <label className="text-sm font-medium text-stone-700">Szukaj</label>
-                      <Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="np. Autokar..." className="h-11 rounded-xl bg-stone-50" />
-                   </div>
-                   <div className="space-y-2">
-                      <label className="text-sm font-medium text-stone-700">Lokalizacja</label>
-                      <Select value={city} onValueChange={setCity}>
-                        <SelectTrigger className="h-11 rounded-xl bg-stone-50"><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                          {cities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                   </div>
-                   <div className="space-y-2">
-                      <label className="text-sm font-medium text-stone-700">Typ pojazdu</label>
-                      <Select value={vType} onValueChange={setVType}>
-                        <SelectTrigger className="h-11 rounded-xl bg-stone-50"><SelectValue/></SelectTrigger>
-                        <SelectContent>
-                          {types.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                        </SelectContent>
-                      </Select>
-                   </div>
-                   <div className="space-y-3">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-stone-600">Cena od</span>
-                        <span className="font-medium">{numberFmt(priceRange[0])} zł</span>
-                      </div>
-                      <Slider value={[priceRange[0]]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceRange([v, priceRange[1]])} className="py-2" />
-                   </div>
-                   <div className="space-y-2">
-                      <label className="text-sm font-medium text-stone-700">Sortowanie</label>
-                      <Select value={sort} onValueChange={(v)=>setSort(v as SortKey)}>
-                        <SelectTrigger className="h-11 rounded-xl bg-stone-50"><SelectValue /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="rekomendowane">Rekomendowane</SelectItem>
-                          <SelectItem value="cena-rosn">Cena: rosnąco</SelectItem>
-                          <SelectItem value="cena-malej">Cena: malejąco</SelectItem>
-                          <SelectItem value="miejsca">Liczba miejsc</SelectItem>
-                          <SelectItem value="nazwa">Nazwa A-Z</SelectItem>
-                        </SelectContent>
-                      </Select>
-                   </div>
-                </div>
-
-                <SheetFooter className="p-4 border-t border-stone-200">
-                    <Button onClick={() => setMobileFiltersOpen(false)} className="w-full h-12 rounded-xl bg-stone-900 text-white hover:bg-stone-800">Pokaż {filtered.length} wyników</Button>
-                </SheetFooter>
-              </SheetContent>
-           </Sheet>
-        </div>
-
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          
           <aside className="hidden lg:col-span-3 lg:block">
             <div className="sticky top-8 space-y-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
               <div className="flex items-center justify-between">
                  <h2 className="font-semibold text-stone-900">Filtry</h2>
-                 {(q || city !== "Wszystkie" || vType !== "Wszystkie" || onlyTop) && <Button variant="ghost" className="h-auto p-0 text-xs text-rose-600" onClick={()=>{setQ(""); setCity("Wszystkie"); setVType("Wszystkie"); setOnlyTop(false); setPriceRange([minPrice, maxPrice]); setMinSeats(0)}}>Reset</Button>}
+                 {(q || city !== "Wszystkie") && <Button variant="ghost" className="h-auto p-0 text-xs text-rose-600" onClick={()=>{setQ(""); setCity("Wszystkie"); setCapacity([0]); setPriceFrom(minPrice); setPriceTo(maxPrice);}}>Reset</Button>}
               </div>
-
               <div className="space-y-5">
                 <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Nazwa</label>
-                  <Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="np. Limuzyna..." className="bg-stone-50 border-transparent focus:bg-white rounded-xl" />
+                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Szukaj</label>
+                  <Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Model auta..." className="bg-stone-50 border-transparent rounded-xl" />
                 </div>
-
                 <div className="space-y-2">
                   <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Lokalizacja</label>
                   <Select value={city} onValueChange={setCity}>
-                    <SelectTrigger className="bg-stone-50 border-transparent focus:bg-white rounded-xl"><SelectValue/></SelectTrigger>
-                    <SelectContent>
-                      {cities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                    </SelectContent>
+                    <SelectTrigger className="bg-stone-50 border-transparent rounded-xl"><SelectValue/></SelectTrigger>
+                    <SelectContent>{cities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Typ pojazdu</label>
-                  <Select value={vType} onValueChange={setVType}>
-                    <SelectTrigger className="bg-stone-50 border-transparent focus:bg-white rounded-xl"><SelectValue/></SelectTrigger>
-                    <SelectContent>
-                      {types.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                
                 <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                     <span className="text-stone-600">Min. miejsc</span>
-                     <span className="font-medium">{minSeats}+</span>
+                     <span className="text-stone-600">Pojemność</span>
+                     <span className="font-medium">{capacity[0]}+ os.</span>
                     </div>
-                    <Slider value={[minSeats]} min={0} max={100} step={1} onValueChange={([v]) => setMinSeats(v)} className="py-2" />
+                  <Slider value={capacity} min={0} max={60} step={1} onValueChange={setCapacity} />
                 </div>
-
                 <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
+                    <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Budżet</label>
+                    <div className="flex justify-between text-sm mb-1">
                      <span className="text-stone-600">Cena od</span>
-                     <span className="font-medium">{numberFmt(priceRange[0])} zł</span>
+                     <span className="font-medium">{numberFmt(priceFrom)} zł</span>
                     </div>
-                    <Slider value={[priceRange[0]]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceRange([v, priceRange[1]])} className="py-2" />
+                    <Slider value={[priceFrom]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceFrom(v)} />
+                    <div className="flex justify-between text-sm mt-3 mb-1">
+                     <span className="text-stone-600">Cena do</span>
+                     <span className="font-medium">{numberFmt(priceTo)} zł</span>
+                    </div>
+                    <Slider value={[priceTo]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceTo(v)} />
                 </div>
-
                 <div className="space-y-2 pt-2 border-t border-stone-100">
                   <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Sortowanie</label>
                   <Select value={sort} onValueChange={(v)=>setSort(v as SortKey)}>
@@ -429,85 +267,49 @@ export default function TransportPro() {
                       <SelectItem value="rekomendowane">Rekomendowane</SelectItem>
                       <SelectItem value="cena-rosn">Cena: rosnąco</SelectItem>
                       <SelectItem value="cena-malej">Cena: malejąco</SelectItem>
-                      <SelectItem value="miejsca">Liczba miejsc</SelectItem>
-                      <SelectItem value="nazwa">Nazwa A-Z</SelectItem>
+                      <SelectItem value="pojemnosc">Liczba miejsc</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
             </div>
           </aside>
-
           <section className="lg:col-span-9">
-             {loading ? (
-                 <div className="flex h-64 flex-col items-center justify-center">
-                     <Loader2 className="h-10 w-10 animate-spin text-blue-500 mb-4" />
-                     <p className="text-stone-500">Odpalam silniki...</p>
-                 </div>
-             ) : filtered.length === 0 ? (
-               <div className="flex h-64 flex-col items-center justify-center rounded-3xl border border-dashed border-stone-300 bg-white text-center">
-                  <div className="rounded-full bg-stone-100 p-4"><Car className="h-6 w-6 text-stone-400" /></div>
-                  <h3 className="mt-4 text-lg font-semibold text-stone-900">Brak wyników</h3>
-                  <p className="text-stone-500">Zmień kryteria wyszukiwania.</p>
-               </div>
-             ) : (
+             {loading ? <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-blue-500" /></div> : (
                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                 {filtered.map((item) => {
-                   const TypeIcon = item.type.toLowerCase().includes("bus") ? Bus : Car;
-                   return (
-                   <Card key={item.id} className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border-0 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
-                      <div className="relative aspect-[4/3] w-full overflow-hidden">
-                        <img src={item.img} alt={item.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-60" />
-                        
-                        <div className="absolute top-3 right-3 z-10">
-                          <button onClick={(e)=>toggleShortlist(e, item.id)} className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-300 ${shortlist.includes(String(item.id)) ? "bg-white text-rose-500 shadow-lg scale-110" : "bg-black/20 text-white backdrop-blur-sm hover:bg-white hover:text-rose-500"}`}>
-                            <Heart className={`h-5 w-5 ${shortlist.includes(String(item.id)) ? "fill-current" : ""}`} />
-                          </button>
-                        </div>
-                        
-                        {item.rating && item.rating >= 4.8 && (
-                           <div className="absolute top-3 left-3 z-10">
-                              <Badge className="bg-white/90 text-stone-800 backdrop-blur-sm hover:bg-white px-2"><Star className="mr-1 h-3 w-3 fill-yellow-400 text-yellow-400" /> {item.rating.toFixed(1)}</Badge>
-                           </div>
-                        )}
-
-                        <div className="absolute bottom-3 left-4 z-10 text-white">
-                           <p className="text-xs font-medium text-white/80 uppercase tracking-wider">{item.type}</p>
-                           <p className="text-xl font-bold">{numberFmt(item.priceFrom)} zł</p>
-                        </div>
+                {filtered.map((item) => (
+                  <Card key={item.id} className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border-0 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
+                    <div className="relative aspect-[4/3] w-full overflow-hidden">
+                      <img src={item.image} alt={item.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent opacity-60 pointer-events-none" />
+                      <div className="absolute top-3 right-3 z-10">
+                        <button onClick={(e)=>toggleShortlist(e, item.id)} className={`flex h-9 w-9 items-center justify-center rounded-full transition-all duration-300 ${shortlist.includes(String(item.id)) ? "bg-white text-rose-500 shadow-lg scale-110" : "bg-black/20 text-white backdrop-blur-sm hover:bg-white hover:text-rose-500"}`}>
+                          <Heart className={`h-5 w-5 ${shortlist.includes(String(item.id)) ? "fill-current" : ""}`} />
+                        </button>
                       </div>
-
-                      <CardContent className="flex-1 p-5">
-                        <div className="mb-2">
-                           <h3 className="text-lg font-bold text-stone-900 leading-tight">{item.name}</h3>
-                           <p className="mt-1 flex items-center text-sm text-stone-500">
-                              <MapPin className="mr-1 h-3.5 w-3.5 text-stone-400" /> {item.city}
-                           </p>
-                        </div>
-                        <div className="mt-4 flex flex-wrap gap-2">
-                            <Badge variant="secondary" className="bg-stone-100 text-stone-600 font-normal">
-                               <Users className="mr-1.5 h-3 w-3" /> {item.capacity ? `${item.capacity} os.` : "4 os."}
-                            </Badge>
-                            <Badge variant="outline" className="text-stone-500 border-stone-200 font-normal">
-                               <TypeIcon className="mr-1.5 h-3 w-3" /> {item.type}
-                            </Badge>
-                        </div>
-                      </CardContent>
-
-                      <CardFooter className="p-5 pt-0 gap-3">
-                          <Button onClick={() => setViewDetailsId(item.id)} variant="outline" className="flex-1 rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50">Szczegóły</Button>
-                          <Button onClick={() => setSelectedId(item.id)} className="flex-1 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg shadow-stone-900/20">Zapytaj</Button>
-                      </CardFooter>
-                   </Card>
-                 )})}
-               </div>
-             )}
+                      <div className="absolute top-3 left-3 z-10 flex gap-2">
+                           <Badge className="bg-white/90 text-stone-800 backdrop-blur-sm px-2"><Star className="mr-1 h-3 w-3 fill-yellow-400 text-yellow-400" /> {item.rating.toFixed(1)}</Badge>
+                      </div>
+                      <div className="absolute bottom-3 left-4 z-10 text-white">
+                           <p className="text-xs font-medium text-white/80 uppercase tracking-wider">Wynajem od</p>
+                           <p className="text-xl font-bold">{numberFmt(item.priceFrom)} zł</p>
+                      </div>
+                    </div>
+                    <CardContent className="flex-1 p-5">
+                        <h3 className="text-lg font-bold text-stone-900 leading-tight">{item.name}</h3>
+                        <p className="mt-1 flex items-center text-sm text-stone-500"><MapPin className="mr-1.5 h-3.5 w-3.5 text-stone-400" /> {item.city} • {item.capacity} os.</p>
+                    </CardContent>
+                    <CardFooter className="p-5 pt-0 gap-3">
+                        <Button onClick={() => setViewDetailsId(item.id)} variant="outline" className="flex-1 rounded-xl" size="sm">Szczegóły</Button>
+                        <Button onClick={()=>addToCart(item)} className="flex-1 rounded-xl bg-stone-900 text-white shadow-lg shadow-stone-900/20" size="sm">Dodaj do koszyka</Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
           </section>
         </div>
       </div>
-
-      {selectedId && <BookingSheet selectedItem={selectedItem} onClose={() => setSelectedId(null)} bookingForm={bookingForm} setBookingForm={setBookingForm} />}
     </div>
   );
 }
@@ -518,78 +320,5 @@ function StatCard({ label, value }: { label: string, value: string }) {
        <span className="text-2xl font-bold text-stone-900">{value}</span>
        <span className="text-xs font-medium text-stone-400 uppercase tracking-wider">{label}</span>
     </div>
-  )
-}
-
-function BookingSheet({ selectedItem, onClose, bookingForm, setBookingForm }: any) {
-    if (!selectedItem) return null;
-    
-    const handleAddToCart = () => {
-        try {
-            const raw = localStorage.getItem(CART_KEY_TRANSPORT);
-            const prev: TransportVendor[] = raw ? JSON.parse(raw) : [];
-            const exists = prev.some((p) => String(p.id) === String(selectedItem.id));
-            if (!exists) {
-                const next = [...prev, selectedItem];
-                localStorage.setItem(CART_KEY_TRANSPORT, JSON.stringify(next));
-            }
-        } catch (e) { console.error(e) }
-        onClose(); 
-    }
-
-    const TypeIcon = selectedItem.type.toLowerCase().includes("bus") ? Bus : Car;
-
-    return (
-        <Sheet open={!!selectedItem} onOpenChange={(o)=> !o && onClose()}>
-        <SheetContent side="right" className="w-full sm:max-w-md border-l-0 shadow-2xl p-0 sm:rounded-l-[2rem] overflow-hidden flex flex-col">
-           <div className="relative h-48 shrink-0">
-               <img src={selectedItem.img} className="h-full w-full object-cover" />
-               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-               <div className="absolute bottom-4 left-6 right-6 text-white">
-                   <h3 className="text-xl font-bold">{selectedItem.name}</h3>
-                   <p className="text-sm text-white/80 flex items-center gap-1"><TypeIcon className="h-3.5 w-3.5"/> {selectedItem.city}</p>
-               </div>
-               <button onClick={onClose} className="absolute top-4 right-4 rounded-full bg-black/20 p-2 text-white backdrop-blur-md hover:bg-black/40"><X className="h-5 w-5"/></button>
-           </div>
-           
-           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-               <div>
-                   <h4 className="text-lg font-semibold mb-4 flex items-center gap-2"><Calendar className="h-5 w-5 text-rose-500"/> Zapytaj o termin</h4>
-                   <div className="space-y-4">
-                       <div className="space-y-1.5">
-                           <label className="text-sm font-medium text-stone-700">Planowana data</label>
-                           <Input type="date" className="h-12 rounded-xl bg-stone-50 border-stone-200" value={bookingForm.date} onChange={(e)=>setBookingForm({...bookingForm, date: e.target.value})} />
-                       </div>
-                        <div className="space-y-1.5">
-                           <label className="text-sm font-medium text-stone-700">Wiadomość (opcjonalnie)</label>
-                           <textarea 
-                            className="w-full rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm min-h-[100px] focus:outline-none focus:ring-2 focus:ring-stone-900"
-                            placeholder="Skąd - Dokąd, godziny..."
-                            value={bookingForm.notes}
-                            onChange={(e)=>setBookingForm({...bookingForm, notes: e.target.value})}
-                           />
-                       </div>
-                   </div>
-               </div>
-
-               <div className="rounded-2xl bg-stone-900 p-5 text-white">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="text-stone-400 text-sm">Cena (od)</span>
-                        <Info className="h-4 w-4 text-stone-500" />
-                    </div>
-                    <div className="text-3xl font-bold">{numberFmt(selectedItem.priceFrom)} zł</div>
-               </div>
-           </div>
-
-           <SheetFooter className="p-6 pt-2 bg-white border-t border-stone-100 grid grid-cols-2 gap-3">
-               <Button size="lg" variant="outline" className="w-full rounded-xl h-14" onClick={handleAddToCart}>
-                   <Heart className="h-4 w-4 mr-2" /> Dodaj
-               </Button>
-               <Button size="lg" className="w-full rounded-xl bg-rose-600 hover:bg-rose-700 h-14 text-lg shadow-lg shadow-rose-900/20">
-                   Wyślij
-               </Button>
-           </SheetFooter>
-        </SheetContent>
-        </Sheet>
-    )
+  );
 }

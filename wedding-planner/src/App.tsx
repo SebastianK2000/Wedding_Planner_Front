@@ -64,7 +64,7 @@ export default function App() {
 
       <Route path="/login" element={<Login />} />
       <Route path="/rejestracja" element={<Register />} />
-      <Route path="/koszyk" element={<PublicLayout><Cart /></PublicLayout>} />
+      <Route path="/koszyk" element={<PublicLayout><Cart isOpen={true} onClose={() => {}} isLoggedIn={false} /></PublicLayout>} />
 
       <Route path="/admin" element={<AdminLayout />}>
          <Route index element={<AdminDashboard />} />

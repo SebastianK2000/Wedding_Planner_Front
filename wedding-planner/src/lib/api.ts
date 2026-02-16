@@ -1,14 +1,12 @@
-// src/lib/api.ts
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://127.0.0.1:8000/api', // Adres Twojego backendu
+  baseURL: 'http://192.168.0.27:8000/api/',
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Automatyczne dodawanie tokena do każdego zapytania (jeśli jesteśmy zalogowani)
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token');

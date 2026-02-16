@@ -2,12 +2,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { Star, MapPin, Filter, Sparkles, Info, Heart, X, Users, Utensils, Calendar, ArrowLeft, Wifi, Car, Music, Coffee, Check, Loader2 } from "lucide-react";
+import { Star, MapPin, Filter, Sparkles, Heart, Users, Utensils, ArrowLeft, Wifi, Car, Music, Coffee, Check, Loader2 } from "lucide-react";
 import api from "../lib/api";
 
 export interface Venue {
@@ -29,7 +29,7 @@ function numberFmt(n: number) {
 
 type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "ocena" | "pojemnosc";
 
-function VenueDetailsPage({ venue, onBack, onBook }: { venue: Venue, onBack: () => void, onBook: () => void }) {
+function VenueDetailsPage({ venue, onBack, onAddToCart }: { venue: Venue, onBack: () => void, onAddToCart: () => void }) {
   const [booking, setBooking] = useState({ date: "", guests: 100 });
   
   const estTotal = useMemo(() => {
@@ -53,8 +53,8 @@ function VenueDetailsPage({ venue, onBack, onBook }: { venue: Venue, onBack: () 
           <ArrowLeft className="h-5 w-5" /> Wróć do listy
         </Button>
         <div className="flex gap-2">
-           <Button variant="outline" className="rounded-full" onClick={()=>{/* Share logic */}}>Udostępnij</Button>
-           <Button variant="outline" className="rounded-full" onClick={()=>{/* Like logic */}}><Heart className="h-4 w-4 mr-2" /> Zapisz</Button>
+           <Button variant="outline" className="rounded-full">Udostępnij</Button>
+           <Button variant="outline" className="rounded-full"><Heart className="h-4 w-4 mr-2" /> Zapisz</Button>
         </div>
       </div>
 
@@ -73,7 +73,6 @@ function VenueDetailsPage({ venue, onBack, onBook }: { venue: Venue, onBack: () 
       </div>
 
       <div className="mx-auto max-w-7xl px-6 py-12 grid grid-cols-1 lg:grid-cols-3 gap-12">
-        
         <div className="lg:col-span-2 space-y-10">
           <div className="flex gap-6 border-b border-stone-100 pb-8">
             <div className="space-y-1">
@@ -109,7 +108,6 @@ function VenueDetailsPage({ venue, onBack, onBook }: { venue: Venue, onBack: () 
               )}
             </div>
           </div>
-
         </div>
 
         <div className="relative">
@@ -136,10 +134,9 @@ function VenueDetailsPage({ venue, onBack, onBook }: { venue: Venue, onBack: () 
                  </div>
               </div>
 
-              <Button onClick={onBook} size="lg" className="w-full h-14 text-lg rounded-xl bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-200">
-                Wyślij zapytanie
+              <Button onClick={onAddToCart} size="lg" className="w-full h-12 text-lg rounded-xl bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-200">
+                Dodaj do koszyka
               </Button>
-              <p className="text-center text-xs text-stone-400">Jeszcze nie płacisz. To tylko zapytanie.</p>
             </div>
 
             <div className="space-y-3 text-stone-600 text-sm border-t border-stone-100 pt-4">
@@ -156,10 +153,8 @@ function VenueDetailsPage({ venue, onBack, onBook }: { venue: Venue, onBack: () 
                 <span>{numberFmt(estTotal * 1.1)} zł</span>
               </div>
             </div>
-
           </div>
         </div>
-
       </div>
     </div>
   )
@@ -171,9 +166,6 @@ export default function VenuesPro() {
   const [capacity, setCapacity] = useState([0]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
   const [sort, setSort] = useState<SortKey>("rekomendowane");
-  const [onlyTop] = useState(false);
-  const [selected, setSelected] = useState<string | number | null>(null);
-  
   const [viewDetailsId, setViewDetailsId] = useState<string | number | null>(null);
 
   const [venues, setVenues] = useState<Venue[]>([]);
@@ -184,32 +176,25 @@ export default function VenuesPro() {
         setLoading(true);
         try {
           const response = await api.get("/venues/");
-          
-          console.log("Otrzymane dane sal:", response.data); 
-
           const mappedVenues: Venue[] = response.data.map((v: any) => ({
               id: v.id,
               name: v.name || v.venue_name || "Bez nazwy",
               city: v.city || "Nieznane",
               capacity: v.capacity || 100,
-              
               pricePerPerson: Number(v.price) || Number(v.priceperperson) || Number(v.price_per_person) || Number(v.cost) || 0,
-              
               rating: Number(v.rating) || 4.5,
               tags: Array.isArray(v.tags) ? v.tags : (v.tags ? v.tags.split(',') : []), 
               image: v.image || v.image_url || "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=1200&auto=format&fit=crop",
               description: v.description || "",
               features: Array.isArray(v.features) ? v.features : (v.features ? v.features.split(',') : ["Parking", "WiFi"])
           }));
-
           setVenues(mappedVenues);
         } catch (error) {
-          console.error("Błąd pobierania sal:", error);
+          console.error(error);
         } finally {
           setLoading(false);
         }
       };
-
       fetchVenues();
     }, []);
 
@@ -237,6 +222,23 @@ export default function VenuesPro() {
     [venues]
   );
 
+  const addToCart = (venue: Venue) => {
+    const KEY = "wp_cart_venues";
+    try {
+      const raw = localStorage.getItem(KEY);
+      const prev = raw ? JSON.parse(raw) : [];
+      if (!prev.find((p: any) => String(p.id) === String(venue.id))) {
+        localStorage.setItem(KEY, JSON.stringify([...prev, venue]));
+        window.dispatchEvent(new Event("wp:cart:update"));
+        alert("Dodano salę do koszyka!");
+      } else {
+        alert("Ta sala znajduje się już w Twoim koszyku.");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const filtered = useMemo(() => {
     let items = venues.filter((v) =>
       (q
@@ -246,8 +248,7 @@ export default function VenuesPro() {
       (city === "Wszystkie" ? true : v.city === city) &&
       v.capacity >= capacity[0] &&
       v.pricePerPerson >= priceRange[0] &&
-      v.pricePerPerson <= priceRange[1] &&
-      (!onlyTop || v.rating >= 4.7)
+      v.pricePerPerson <= priceRange[1]
     );
 
     switch (sort) {
@@ -267,7 +268,7 @@ export default function VenuesPro() {
         items = items.sort((a, b) => b.rating - a.rating);
     }
     return items;
-  }, [venues, q, city, capacity, priceRange, onlyTop, sort]);
+  }, [venues, q, city, capacity, priceRange, sort]);
 
   useEffect(() => {
     localStorage.setItem("wp_venues_shortlist", JSON.stringify(shortlist));
@@ -279,46 +280,15 @@ export default function VenuesPro() {
     setShortlist((s) => (s.includes(idStr) ? s.filter((x) => x !== idStr) : [...s, idStr]));
   };
 
-  const openBooking = (id: string | number) => setSelected(id);
-  const closeBooking = () => setSelected(null);
-
-  const selectedVenue = useMemo(
-    () => venues.find((v) => v.id === selected) || null,
-    [selected, venues]
-  );
-
-  const [booking, setBooking] = useState<{ date: string; guests: number; notes: string }>({ date: "", guests: 100, notes: "" });
-  
-  useEffect(() => {
-    if (!selectedVenue) return;
-    setBooking((b) => ({ ...b, guests: Math.min(Math.max(60, b.guests), selectedVenue.capacity) }));
-  }, [selectedVenue]);
-
-  const estTotal = useMemo(() => {
-    if (!selectedVenue) return 0;
-    const g = Math.min(Math.max(1, booking.guests || 1), selectedVenue.capacity);
-    return g * selectedVenue.pricePerPerson;
-  }, [selectedVenue, booking.guests]);
-  
   const detailsVenue = useMemo(() => venues.find(v => v.id === viewDetailsId), [viewDetailsId, venues]);
 
   if (viewDetailsId && detailsVenue) {
     return (
-      <>
-        <VenueDetailsPage 
-          venue={detailsVenue} 
-          onBack={() => setViewDetailsId(null)} 
-          onBook={() => openBooking(detailsVenue.id)}
-        />
-        <BookingSheet 
-            open={!!selected} 
-            venue={selectedVenue} 
-            onClose={closeBooking} 
-            booking={booking} 
-            setBooking={setBooking} 
-            estTotal={estTotal} 
-        />
-      </>
+      <VenueDetailsPage 
+        venue={detailsVenue} 
+        onBack={() => setViewDetailsId(null)} 
+        onAddToCart={() => addToCart(detailsVenue)}
+      />
     );
   }
 
@@ -335,19 +305,13 @@ export default function VenuesPro() {
               Znajdź wymarzoną salę
             </h1>
             <p className="max-w-xl text-stone-500">
-              Przeglądaj wyselekcjonowane obiekty, sprawdzaj dostępność i rezerwuj terminy w jednym miejscu.
+              Przeglądaj wyselekcjonowane obiekty, sprawdzaj dostępność i planuj swój wielki dzień.
             </p>
           </div>
 
           <div className="flex gap-4">
-             <div className="flex flex-col items-center justify-center rounded-2xl bg-white px-6 py-3 shadow-sm ring-1 ring-black/5">
-               <span className="text-2xl font-bold text-stone-900">{venues.length}</span>
-               <span className="text-xs font-medium text-stone-400 uppercase tracking-wider">Obiektów</span>
-             </div>
-             <div className="flex flex-col items-center justify-center rounded-2xl bg-white px-6 py-3 shadow-sm ring-1 ring-black/5">
-               <span className="text-2xl font-bold text-stone-900">{venues.length > 0 ? numberFmt(minPrice) : "-"}</span>
-               <span className="text-xs font-medium text-stone-400 uppercase tracking-wider">Od zł/os.</span>
-             </div>
+             <StatCard label="Obiektów" value={String(venues.length)} />
+             <StatCard label="Od zł/os." value={venues.length > 0 ? numberFmt(minPrice) : "-"} />
           </div>
         </header>
 
@@ -373,12 +337,11 @@ export default function VenuesPro() {
         </div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
-          
           <aside className="hidden lg:col-span-3 lg:block">
             <div className="sticky top-8 space-y-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
               <div className="flex items-center justify-between">
                  <h2 className="font-semibold text-stone-900">Filtry</h2>
-                 { (q || city !== "Wszystkie") && <Button variant="ghost" className="h-auto p-0 text-xs text-rose-600 hover:text-rose-700 hover:bg-transparent" onClick={()=>{setQ(""); setCity("Wszystkie")}}>Reset</Button>}
+                 { (q || city !== "Wszystkie") && <Button variant="ghost" className="h-auto p-0 text-xs text-rose-600" onClick={()=>{setQ(""); setCity("Wszystkie")}}>Reset</Button>}
               </div>
 
               <div className="space-y-5">
@@ -440,11 +403,10 @@ export default function VenuesPro() {
                          return (
                              <div key={id} className="flex items-center justify-between text-sm">
                                  <span className="truncate max-w-[140px]">{v.name}</span>
-                                 <button onClick={()=>openBooking(v.id)} className="text-xs font-medium underline decoration-rose-300 underline-offset-2">Zapytaj</button>
+                                 <button onClick={()=>setViewDetailsId(v.id)} className="text-xs font-medium underline decoration-rose-300 underline-offset-2">Szczegóły</button>
                              </div>
                          )
                     })}
-                    {shortlist.length > 3 && <div className="text-xs opacity-60 text-center pt-1">+ {shortlist.length - 3} więcej</div>}
                   </div>
                 </div>
             )}
@@ -465,7 +427,6 @@ export default function VenuesPro() {
             ) : (
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
                 {filtered.map((v) => (
-                  
                   <Card key={v.id} className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border-0 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                     <div className="relative aspect-[4/3] w-full overflow-hidden">
                       <img 
@@ -484,7 +445,7 @@ export default function VenuesPro() {
                         </button>
                       </div>
                       <div className="absolute top-3 left-3 z-10 flex gap-2">
-                          <Badge className="bg-white/90 text-stone-800 backdrop-blur-sm hover:bg-white px-2">
+                          <Badge className="bg-white/90 text-stone-800 backdrop-blur-sm px-2">
                               <Star className="mr-1 h-3 w-3 fill-yellow-400 text-yellow-400" /> {v.rating}
                           </Badge>
                       </div>
@@ -496,17 +457,15 @@ export default function VenuesPro() {
                     </div>
 
                     <CardContent className="flex-1 p-5">
-                      <div className="mb-2 flex items-start justify-between">
-                        <div>
-                             <h3 className="text-lg font-bold text-stone-900 leading-tight">{v.name}</h3>
-                             <p className="mt-1 flex items-center text-sm text-stone-500">
-                                <MapPin className="mr-1 h-3.5 w-3.5 text-stone-400" /> {v.city}
-                             </p>
-                        </div>
+                      <div className="mb-2">
+                         <h3 className="text-lg font-bold text-stone-900 leading-tight">{v.name}</h3>
+                         <p className="mt-1 flex items-center text-sm text-stone-500">
+                            <MapPin className="mr-1 h-3.5 w-3.5 text-stone-400" /> {v.city}
+                         </p>
                       </div>
 
                       <div className="mt-4 flex flex-wrap gap-2">
-                         <Badge variant="secondary" className="bg-stone-100 text-stone-600 hover:bg-stone-200 font-normal">
+                         <Badge variant="secondary" className="bg-stone-100 text-stone-600 font-normal">
                              <Users className="mr-1.5 h-3 w-3" /> do {v.capacity}
                          </Badge>
                          {v.tags.slice(0,2).map((t, idx) => (
@@ -516,8 +475,8 @@ export default function VenuesPro() {
                     </CardContent>
 
                     <CardFooter className="p-5 pt-0 gap-3">
-                        <Button onClick={() => setViewDetailsId(v.id)} variant="outline" className="flex-1 rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50 hover:text-stone-900">Szczegóły</Button>
-                        <Button onClick={()=>openBooking(v.id)} className="flex-1 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg shadow-stone-900/20">Rezerwuj</Button>
+                        <Button onClick={() => setViewDetailsId(v.id)} size="sm" variant="outline" className="flex-1 rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50">Szczegóły</Button>
+                        <Button onClick={()=>addToCart(v)} size="sm" className="flex-1 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg shadow-stone-900/20">Dodaj do koszyka</Button>
                     </CardFooter>
                   </Card>
                 ))}
@@ -526,80 +485,15 @@ export default function VenuesPro() {
           </section>
         </div>
       </div>
-
-      <BookingSheet 
-        open={!!selected} 
-        venue={selectedVenue} 
-        onClose={closeBooking} 
-        booking={booking} 
-        setBooking={setBooking} 
-        estTotal={estTotal} 
-      />
     </div>
   );
 }
 
-function BookingSheet({ open, venue, onClose, booking, setBooking, estTotal }: any) {
-    if (!venue) return null;
-    return (
-        <Sheet open={open} onOpenChange={(o)=> !o && onClose()}>
-        <SheetContent side="right" className="w-full sm:max-w-md border-l-0 shadow-2xl p-0 sm:rounded-l-[2rem] overflow-hidden flex flex-col z-[60]">
-           <>
-           <div className="relative h-48 shrink-0">
-               <img src={venue.image} className="h-full w-full object-cover" />
-               <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
-               <div className="absolute bottom-4 left-6 right-6 text-white">
-                   <h3 className="text-xl font-bold">{venue.name}</h3>
-                   <p className="text-sm text-white/80 flex items-center gap-1"><MapPin className="h-3.5 w-3.5"/> {venue.city}</p>
-               </div>
-               <button onClick={onClose} className="absolute top-4 right-4 rounded-full bg-black/20 p-2 text-white backdrop-blur-md hover:bg-black/40"><X className="h-5 w-5"/></button>
-           </div>
-           
-           <div className="flex-1 overflow-y-auto p-6 space-y-6">
-               <div>
-                   <h4 className="text-lg font-semibold mb-4 flex items-center gap-2"><Calendar className="h-5 w-5 text-rose-500"/> Szczegóły zapytania</h4>
-                   <div className="space-y-4">
-                       <div className="space-y-1.5">
-                           <label className="text-sm font-medium text-stone-700">Planowana data</label>
-                           <Input type="date" className="h-12 rounded-xl bg-stone-50 border-stone-200" value={booking.date} onChange={(e: any)=>setBooking((b: any)=>({...b, date: e.target.value}))} />
-                       </div>
-                       <div className="space-y-1.5">
-                           <label className="text-sm font-medium text-stone-700">Liczba gości (max {venue.capacity})</label>
-                           <div className="flex items-center gap-3">
-                               // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/no-explicit-any, @typescript-eslint/no-explicit-any
-                               <Slider value={[booking.guests]} min={10} max={venue.capacity} step={1} onValueChange={([v])=>setBooking((b: any)=>({...b, guests: v}))} className="flex-1" />
-                               <div className="w-16 h-12 flex items-center justify-center rounded-xl border border-stone-200 bg-white font-semibold">
-                                   {booking.guests}
-                               </div>
-                           </div>
-                       </div>
-                        <div className="space-y-1.5">
-                           <label className="text-sm font-medium text-stone-700">Dodatkowe życzenia</label>
-                           <textarea 
-                            className="w-full rounded-xl border border-stone-200 bg-stone-50 p-3 text-sm min-h-[100px] focus:outline-none focus:ring-2 focus:ring-stone-900"
-                            placeholder="Opisz swoje wymagania..."
-                            value={booking.notes}
-                            onChange={(e)=>setBooking((b: any)=>({...b, notes: e.target.value}))}
-                           />
-                       </div>
-                   </div>
-               </div>
-
-               <div className="rounded-2xl bg-stone-900 p-5 text-white">
-                    <div className="flex justify-between items-center mb-2">
-                        <span className="text-stone-400 text-sm">Estymacja kosztów</span>
-                        <Info className="h-4 w-4 text-stone-500" />
-                    </div>
-                    <div className="text-3xl font-bold">{numberFmt(estTotal)} zł</div>
-                    <div className="text-sm text-stone-500 mt-1">Cena talerzyka × liczba gości</div>
-               </div>
-           </div>
-
-           <SheetFooter className="p-6 pt-2 bg-white border-t border-stone-100">
-               <Button size="lg" className="w-full rounded-xl bg-rose-600 hover:bg-rose-700 h-14 text-lg shadow-lg shadow-rose-900/20">Wyślij darmowe zapytanie</Button>
-           </SheetFooter>
-           </>
-        </SheetContent>
-        </Sheet>
-    );
+function StatCard({ label, value }: { label: string, value: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-2xl bg-white px-6 py-3 shadow-sm ring-1 ring-black/5">
+       <span className="text-2xl font-bold text-stone-900">{value}</span>
+       <span className="text-xs font-medium text-stone-400 uppercase tracking-wider">{label}</span>
+    </div>
+  )
 }

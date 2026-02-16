@@ -2,12 +2,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { Star, MapPin, Filter, Sparkles, Heart, Users, Utensils, ArrowLeft, Wifi, Car, Music, Coffee, Check, Loader2 } from "lucide-react";
+import { Star, MapPin, Filter, Sparkles, Heart, Users, Utensils, ArrowLeft, Wifi, Car, Music, Coffee, Check, Loader2, ShoppingBag } from "lucide-react";
 import api from "../lib/api";
 
 export interface Venue {
@@ -27,11 +26,46 @@ function numberFmt(n: number) {
   return new Intl.NumberFormat("pl-PL").format(n);
 }
 
+function useVenueCart() {
+  const [cartIds, setCartIds] = useState<string[]>([]);
+
+  const update = async () => {
+    const isLoggedIn = !!localStorage.getItem("user");
+    if (isLoggedIn) {
+      try {
+        const res = await api.get("/user-favorites/");
+        const ids = res.data
+          .filter((f: any) => f.servicetype === "venue")
+          .map((f: any) => String(f.serviceid));
+        setCartIds(ids);
+      } catch (e) { console.error(e); }
+    } else {
+      const raw = localStorage.getItem("wp_cart_venues");
+      if (raw) {
+        const list = JSON.parse(raw);
+        setCartIds(list.map((i: any) => String(i.id)));
+      } else {
+        setCartIds([]);
+      }
+    }
+  };
+
+  useEffect(() => {
+    update();
+    window.addEventListener("wp:cart:update", update);
+    return () => window.removeEventListener("wp:cart:update", update);
+  }, []);
+
+  return cartIds;
+}
+
 type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "ocena" | "pojemnosc";
 
 function VenueDetailsPage({ venue, onBack, onAddToCart }: { venue: Venue, onBack: () => void, onAddToCart: () => void }) {
   const [booking, setBooking] = useState({ date: "", guests: 100 });
-  
+  const cartIds = useVenueCart();
+  const isInCart = cartIds.includes(String(venue.id));
+
   const estTotal = useMemo(() => {
     const g = Math.min(Math.max(1, booking.guests || 1), venue.capacity);
     return g * venue.pricePerPerson;
@@ -134,8 +168,13 @@ function VenueDetailsPage({ venue, onBack, onAddToCart }: { venue: Venue, onBack
                  </div>
               </div>
 
-              <Button onClick={onAddToCart} size="lg" className="w-full h-12 text-lg rounded-xl bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-200">
-                Dodaj do koszyka
+              <Button 
+                onClick={onAddToCart} 
+                disabled={isInCart}
+                size="lg" 
+                className={`w-full h-12 text-lg rounded-xl shadow-lg transition-all ${isInCart ? "bg-stone-200 text-stone-500 shadow-none cursor-not-allowed hover:bg-stone-200" : "bg-rose-600 hover:bg-rose-700 shadow-rose-200"}`}
+              >
+                {isInCart ? "W koszyku" : "Dodaj do koszyka"}
               </Button>
             </div>
 
@@ -170,6 +209,8 @@ export default function VenuesPro() {
 
   const [venues, setVenues] = useState<Venue[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const cartIds = useVenueCart();
 
   useEffect(() => {
       const fetchVenues = async () => {
@@ -222,20 +263,42 @@ export default function VenuesPro() {
     [venues]
   );
 
-  const addToCart = (venue: Venue) => {
-    const KEY = "wp_cart_venues";
-    try {
-      const raw = localStorage.getItem(KEY);
-      const prev = raw ? JSON.parse(raw) : [];
-      if (!prev.find((p: any) => String(p.id) === String(venue.id))) {
-        localStorage.setItem(KEY, JSON.stringify([...prev, venue]));
+  const addToCart = async (venue: Venue) => {
+    if (cartIds.includes(String(venue.id))) return;
+
+    const isLoggedIn = !!localStorage.getItem("user");
+
+    if (isLoggedIn) {
+      try {
+        await api.post("/user-favorites/", {
+           serviceid: venue.id,
+           servicetype: "venue"
+        });
         window.dispatchEvent(new Event("wp:cart:update"));
-        alert("Dodano salę do koszyka!");
-      } else {
-        alert("Ta sala znajduje się już w Twoim koszyku.");
+        alert("Dodano salę do koszyka (konto)!");
+      } catch (e: any) {
+        if (e.response && (e.response.status === 400 || e.response.status === 409)) {
+           alert("Ta sala znajduje się już w Twoim koszyku.");
+        } else {
+           console.error(e);
+           alert("Błąd API.");
+        }
       }
-    } catch (e) {
-      console.error(e);
+    } else {
+      const KEY = "wp_cart_venues";
+      try {
+        const raw = localStorage.getItem(KEY);
+        const prev = raw ? JSON.parse(raw) : [];
+        if (!prev.find((p: any) => String(p.id) === String(venue.id))) {
+          localStorage.setItem(KEY, JSON.stringify([...prev, venue]));
+          window.dispatchEvent(new Event("wp:cart:update"));
+          alert("Dodano salę do koszyka!");
+        } else {
+          alert("Ta sala znajduje się już w Twoim koszyku.");
+        }
+      } catch (e) {
+        console.error(e);
+      }
     }
   };
 
@@ -315,30 +378,10 @@ export default function VenuesPro() {
           </div>
         </header>
 
-        <div className="flex items-center justify-between rounded-2xl bg-white p-4 shadow-sm md:hidden">
-          <span className="text-sm font-medium text-stone-600">Wyniki: {filtered.length}</span>
-          <Sheet>
-            <SheetTrigger asChild>
-              <Button variant="outline" className="rounded-full border-stone-200"><Filter className="mr-2 h-4 w-4" /> Filtry</Button>
-            </SheetTrigger>
-            <SheetContent side="bottom" className="h-[85vh] rounded-t-[2rem]">
-               <SheetHeader className="mb-5 text-left">
-                <SheetTitle className="text-xl">Filtrowanie</SheetTitle>
-              </SheetHeader>
-              <div className="space-y-6 px-1">
-                 <div className="space-y-2">
-                    <label className="text-sm font-medium text-stone-700">Szukaj</label>
-                    <Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Np. stodoła, loft..." className="h-11 rounded-xl bg-stone-50" />
-                  </div>
-                  <Button className="w-full h-12 rounded-xl bg-stone-900 text-white hover:bg-stone-800">Pokaż wyniki</Button>
-              </div>
-            </SheetContent>
-          </Sheet>
-        </div>
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
           <aside className="hidden lg:col-span-3 lg:block">
-            <div className="sticky top-8 space-y-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
+             <div className="sticky top-8 space-y-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
               <div className="flex items-center justify-between">
                  <h2 className="font-semibold text-stone-900">Filtry</h2>
                  { (q || city !== "Wszystkie") && <Button variant="ghost" className="h-auto p-0 text-xs text-rose-600" onClick={()=>{setQ(""); setCity("Wszystkie")}}>Reset</Button>}
@@ -426,7 +469,9 @@ export default function VenuesPro() {
               </div>
             ) : (
               <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {filtered.map((v) => (
+                {filtered.map((v) => {
+                  const isInCart = cartIds.includes(String(v.id));
+                  return (
                   <Card key={v.id} className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border-0 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                     <div className="relative aspect-[4/3] w-full overflow-hidden">
                       <img 
@@ -476,10 +521,17 @@ export default function VenuesPro() {
 
                     <CardFooter className="p-5 pt-0 gap-3">
                         <Button onClick={() => setViewDetailsId(v.id)} size="sm" variant="outline" className="flex-1 rounded-xl border-stone-200 text-stone-700 hover:bg-stone-50">Szczegóły</Button>
-                        <Button onClick={()=>addToCart(v)} size="sm" className="flex-1 rounded-xl bg-stone-900 text-white hover:bg-stone-800 shadow-lg shadow-stone-900/20">Dodaj do koszyka</Button>
+                        <Button 
+                          onClick={()=>addToCart(v)} 
+                          disabled={isInCart}
+                          size="sm" 
+                          className={`flex-1 rounded-xl shadow-lg transition-colors ${isInCart ? "bg-stone-200 text-stone-500 cursor-not-allowed shadow-none hover:bg-stone-200" : "bg-stone-900 text-white hover:bg-stone-800 shadow-stone-900/20"}`}
+                        >
+                          {isInCart ? <><ShoppingBag className="w-4 h-4 mr-1"/> W koszyku</> : "Dodaj"}
+                        </Button>
                     </CardFooter>
                   </Card>
-                ))}
+                )})}
               </div>
             )}
           </section>

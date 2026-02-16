@@ -16,7 +16,8 @@ import {
   AlertCircle,
   Banknote,
   CheckCircle2,
-  Loader2
+  Loader2,
+  WifiOff
 } from "lucide-react";
 import api from "../lib/api";
 
@@ -46,6 +47,19 @@ type BudgetItemView = {
   notes?: string;
 };
 
+const DEFAULT_CATEGORIES: ApiBudgetCategory[] = [
+  { id: 1, name: "Sala i katering" },
+  { id: 2, name: "Foto i wideo" },
+  { id: 3, name: "Muzyka" },
+  { id: 4, name: "Kwiaty i dekoracje" },
+  { id: 5, name: "Stroje i dodatki" },
+  { id: 6, name: "Transport" },
+  { id: 7, name: "Papeteria" },
+  { id: 8, name: "Inne" }
+];
+
+const LOCAL_STORAGE_KEY = "wp_budget_items";
+
 const PLN = (n: number) =>
   new Intl.NumberFormat("pl-PL", { maximumFractionDigits: 0 }).format(n) + " zł";
 
@@ -53,6 +67,7 @@ export default function Budget() {
   const [items, setItems] = useState<BudgetItemView[]>([]);
   const [categories, setCategories] = useState<ApiBudgetCategory[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isOffline, setIsOffline] = useState(false);
 
   const [editing, setEditing] = useState<BudgetItemView | null>(null);
   const [query, setQuery] = useState("");
@@ -60,13 +75,21 @@ export default function Budget() {
   const [toast, setToast] = useState<string | null>(null);
 
   const fetchData = async () => {
+    const isLoggedIn = !!localStorage.getItem("access_token") || !!localStorage.getItem("user");
+
+    if (!isLoggedIn) {
+      loadLocalData();
+      setLoading(false);
+      return;
+    }
+
     try {
       const [itemsRes, catsRes] = await Promise.all([
-        api.get("/budget/"),
+        api.get("/budget-items/"),
         api.get("/budget-categories/"),
       ]);
 
-      const fetchedCategories: ApiBudgetCategory[] = catsRes.data;
+      const fetchedCategories: ApiBudgetCategory[] = catsRes.data && catsRes.data.length > 0 ? catsRes.data : DEFAULT_CATEGORIES;
       setCategories(fetchedCategories);
 
       const mappedItems: BudgetItemView[] = itemsRes.data.map((i: ApiBudgetItem) => {
@@ -84,16 +107,40 @@ export default function Budget() {
       });
 
       setItems(mappedItems);
+      setIsOffline(false);
     } catch (error) {
-      console.error("Błąd pobierania budżetu:", error);
-      setToast("Błąd połączenia z serwerem");
+      console.warn("API budżetu niedostępne (404/Error), przełączanie na tryb lokalny.", error);
+      loadLocalData();
+      setIsOffline(true);
+      setToast("Tryb lokalny (brak połączenia z serwerem)");
     } finally {
       setLoading(false);
     }
   };
 
+  const loadLocalData = () => {
+    setCategories(DEFAULT_CATEGORIES);
+    try {
+      const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (raw) {
+        setItems(JSON.parse(raw));
+      } else {
+        setItems([]);
+      }
+    } catch (e) {
+      console.error("Błąd odczytu LS", e);
+      setItems([]);
+    }
+  };
+
+  const saveLocalData = (newItems: BudgetItemView[]) => {
+    setItems(newItems);
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newItems));
+  };
+
   useEffect(() => {
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -146,6 +193,20 @@ export default function Budget() {
   }
 
   async function save(item: BudgetItemView) {
+    if (isOffline) {
+        let newItems = [...items];
+        if (item.id === 0) {
+            const newItem = { ...item, id: Date.now() }; 
+            newItems.push(newItem);
+        } else {
+            newItems = newItems.map(i => i.id === item.id ? item : i);
+        }
+        saveLocalData(newItems);
+        setEditing(null);
+        setToast("Zapisano (lokalnie)");
+        return;
+    }
+
     const payload = {
         categoryid: item.categoryId,
         name: item.name,
@@ -157,34 +218,51 @@ export default function Budget() {
 
     try {
         if (item.id > 0) {
-            await api.put(`/budget/${item.id}/`, payload);
+            await api.put(`/budget-items/${item.id}/`, payload);
         } else {
-            await api.post("/budget/", payload);
+            await api.post("/budget-items/", payload);
         }
         setEditing(null);
         setToast("Zapisano pozycję");
         fetchData();
     } catch (e) {
         console.error(e);
-        alert("Wystąpił błąd podczas zapisu.");
+        alert("Błąd zapisu API. Przełączono na tryb lokalny.");
+        setIsOffline(true);
+        save({ ...item, id: item.id === 0 ? Date.now() : item.id });
     }
   }
 
   async function remove(id: number) {
     if(!confirm("Czy na pewno chcesz usunąć ten wydatek?")) return;
     
-    setItems((prev) => prev.filter((p) => p.id !== id));
-    setToast("Usunięto pozycję");
+    if (isOffline) {
+        const newItems = items.filter(p => p.id !== id);
+        saveLocalData(newItems);
+        setToast("Usunięto (lokalnie)");
+        return;
+    }
 
     try {
-        await api.delete(`/budget/${id}/`);
+        await api.delete(`/budget-items/${id}/`);
+        setItems((prev) => prev.filter((p) => p.id !== id));
+        setToast("Usunięto pozycję");
     } catch (e) {
         console.error(e);
-        fetchData();
+        setItems((prev) => prev.filter((p) => p.id !== id));
+        setToast("Usunięto (lokalnie - błąd API)");
+        setIsOffline(true);
     }
   }
 
   async function duplicate(item: BudgetItemView) {
+    if (isOffline) {
+        const newItem = { ...item, id: Date.now(), name: item.name + " (kopia)", paid: false };
+        saveLocalData([...items, newItem]);
+        setToast("Skopiowano (lokalnie)");
+        return;
+    }
+
     const payload = {
         categoryid: item.categoryId,
         name: item.name + " (kopia)",
@@ -195,27 +273,33 @@ export default function Budget() {
     };
 
     try {
-        await api.post("/budget/", payload);
+        await api.post("/budget-items/", payload);
         setToast("Skopiowano pozycję");
         fetchData();
     } catch (e) {
         console.error(e);
-        setToast("Błąd kopiowania");
+        setToast("Błąd kopiowania API");
     }
   }
 
   async function togglePaid(id: number) {
     const item = items.find(i => i.id === id);
     if (!item) return;
-
     const newState = !item.paid;
+
+    if (isOffline) {
+        const newItems = items.map(p => p.id === id ? { ...p, paid: newState } : p);
+        saveLocalData(newItems);
+        return;
+    }
+
     setItems((prev) => prev.map((p) => (p.id === id ? { ...p, paid: newState } : p)));
 
     try {
-        await api.patch(`/budget/${id}/`, { ispaid: newState });
+        await api.patch(`/budget-items/${id}/`, { ispaid: newState });
     } catch (e) {
         console.error(e);
-        fetchData();
+        setToast("Błąd synchronizacji statusu");
     }
   }
 
@@ -270,7 +354,10 @@ export default function Budget() {
     <div className="space-y-6 max-w-6xl mx-auto p-4">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-stone-900">Budżet</h2>
+          <h2 className="text-2xl font-bold text-stone-900 flex items-center gap-2">
+            Budżet
+            {isOffline && <span className="px-2 py-0.5 rounded-md bg-stone-100 text-stone-500 text-xs font-normal border border-stone-200 flex items-center gap-1"><WifiOff className="h-3 w-3"/> Tryb lokalny</span>}
+          </h2>
           <p className="text-stone-500 mt-1">Kontroluj wydatki i planuj koszty wesela.</p>
         </div>
         <div className="flex items-center gap-2">
@@ -517,7 +604,7 @@ function Select({
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full appearance-none rounded-xl border border-stone-200 px-4 py-2 pr-8 text-sm font-medium text-stone-600 outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500 ${className ?? ""}`}
+        className={`w-full appearance-none rounded-xl border border-stone-200 px-4 py-2 pr-8 text-sm font-medium text-stone-600 outline-none focus:border-accent-500 focus:ring-1 focus:ring-accent-500/20 ${className ?? ""}`}
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>

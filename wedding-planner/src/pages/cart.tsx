@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import { useEffect, useState, useCallback } from "react";
 import { X, Trash2, Loader2, ShoppingBag, CalendarCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
@@ -33,17 +34,7 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (isOpen) {
-      if (isLoggedIn) {
-        fetchApiCart();
-      } else {
-        fetchLocalCart();
-      }
-    }
-  }, [isOpen, isLoggedIn]);
-
-  const fetchLocalCart = () => {
+  const fetchLocalCart = useCallback(() => {
     const loadedItems: CartItem[] = [];
     
     Object.entries(CART_KEYS).forEach(([type, key]) => {
@@ -56,9 +47,9 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
               uniqueId: `${type}-${p.id}`,
               id: p.id,
               type: type,
-              name: p.name || p.title,
-              price: p.price || p.priceFrom,
-              image: p.img || p.image,
+              name: p.name || p.title || p.companyname || "Usługa",
+              price: Number(p.price || p.priceFrom || p.pricePerPerson || 0),
+              image: p.img || p.image || p.imageurl,
               savedAt: new Date().toISOString()
             });
           });
@@ -67,9 +58,9 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
     });
     
     setItems(loadedItems);
-  };
+  }, []);
 
-  const fetchApiCart = async () => {
+  const fetchApiCart = useCallback(async () => {
     setLoading(true);
     try {
       const res = await api.get("/user-favorites/");
@@ -95,10 +86,11 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
             id: fav.serviceid,
             type: fav.servicetype,
             name: d.name || d.title || d.companyname,
-            price: d.pricefrom || d.priceperperson,
-            image: d.imageurl,
+            price: Number(d.pricefrom || d.priceperperson || d.price || 0),
+            image: d.imageurl || d.image,
             savedAt: fav.savedat
           } as CartItem;
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (e) {
           return null;
         }
@@ -112,7 +104,27 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    const refreshCart = () => {
+      if (isLoggedIn) {
+        fetchApiCart();
+      } else {
+        fetchLocalCart();
+      }
+    };
+
+    if (isOpen) {
+      refreshCart();
+    }
+
+    window.addEventListener("wp:cart:update", refreshCart);
+
+    return () => {
+      window.removeEventListener("wp:cart:update", refreshCart);
+    };
+  }, [isOpen, isLoggedIn, fetchApiCart, fetchLocalCart]);
 
   const removeItem = async (item: CartItem) => {
     if (isLoggedIn) {
@@ -128,11 +140,11 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
       } catch (e) { console.error("Błąd usuwania API", e); }
     } else {
       let lsKey = "";
-      if (item.type.includes("venue")) lsKey = CART_KEYS.venues;
-      else if (item.type.includes("photo")) lsKey = CART_KEYS.photographers;
-      else if (item.type.includes("florist")) lsKey = CART_KEYS.florists;
-      else if (item.type.includes("music")) lsKey = CART_KEYS.music;
-      else if (item.type.includes("transport")) lsKey = CART_KEYS.transport;
+      if (item.type === "venue" || item.type.includes("venue")) lsKey = CART_KEYS.venues;
+      else if (item.type === "photographer" || item.type.includes("photo")) lsKey = CART_KEYS.photographers;
+      else if (item.type === "florist" || item.type.includes("florist")) lsKey = CART_KEYS.florists;
+      else if (item.type === "musician" || item.type.includes("music")) lsKey = CART_KEYS.music;
+      else if (item.type === "transport" || item.type.includes("transport")) lsKey = CART_KEYS.transport;
 
       if (lsKey) {
         try {
@@ -141,12 +153,18 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
             const list = JSON.parse(raw);
             const newList = list.filter((x: any) => x.id !== item.id);
             localStorage.setItem(lsKey, JSON.stringify(newList));
+            
             setItems(prev => prev.filter(i => i.uniqueId !== item.uniqueId));
+            
             window.dispatchEvent(new Event("wp:cart:update"));
           }
-        } catch {}
+        } catch (e) { console.error("Błąd usuwania z LS", e); }
       }
     }
+  };
+
+  const calculateTotal = () => {
+    return items.reduce((sum, item) => sum + (item.price || 0), 0);
   };
 
   return (
@@ -161,7 +179,7 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
           
           <div className="flex items-center justify-between px-6 py-4 border-b border-stone-100">
             <h2 className="text-lg font-bold text-stone-900 flex items-center gap-2">
-              <ShoppingBag size={20} /> Twój Koszyk
+              <ShoppingBag size={20} /> Twój Planer
             </h2>
             <button onClick={onClose} className="p-2 text-stone-400 hover:text-stone-600 rounded-full hover:bg-stone-50 transition-colors">
               <X size={20} />
@@ -171,7 +189,7 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
           <div className="flex-1 overflow-y-auto p-6 space-y-4">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-40 text-stone-500 gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-accent-500" />
+                <Loader2 className="h-8 w-8 animate-spin text-rose-500" />
                 <p className="text-sm">Ładowanie Twoich wyborów...</p>
               </div>
             ) : items.length === 0 ? (
@@ -185,7 +203,7 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
               </div>
             ) : (
               items.map((item) => (
-                <div key={item.uniqueId} className="group relative flex gap-4 p-3 rounded-2xl border border-stone-100 bg-white hover:border-accent-200 hover:shadow-md transition-all">
+                <div key={item.uniqueId} className="group relative flex gap-4 p-3 rounded-2xl border border-stone-100 bg-white hover:border-rose-200 hover:shadow-md transition-all">
                   <div className="w-20 h-20 flex-shrink-0 bg-stone-100 rounded-xl overflow-hidden">
                     <img 
                       src={item.image || "https://placehold.co/100x100?text=Usługa"} 
@@ -196,8 +214,8 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
                     <div className="flex justify-between items-start">
                         <div>
-                            <p className="text-xs font-semibold text-accent-600 uppercase tracking-wide mb-0.5">{item.type}</p>
-                            <h4 className="font-bold text-stone-900 truncate pr-4">{item.name}</h4>
+                            <p className="text-xs font-semibold text-rose-600 uppercase tracking-wide mb-0.5">{item.type}</p>
+                            <h4 className="font-bold text-stone-900 truncate pr-4 text-sm sm:text-base">{item.name}</h4>
                         </div>
                         <button 
                             onClick={() => removeItem(item)}
@@ -208,7 +226,7 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
                         </button>
                     </div>
                     {item.price ? (
-                        <p className="text-sm text-stone-500 mt-1">od {item.price} PLN</p>
+                        <p className="text-sm text-stone-500 mt-1">{item.price} PLN <span className="text-xs text-stone-400">(orientacyjnie)</span></p>
                     ) : (
                         <p className="text-sm text-stone-400 mt-1 italic">Cena do uzgodnienia</p>
                     )}
@@ -219,10 +237,16 @@ export default function Cart({ isOpen, onClose, isLoggedIn }: CartProps) {
           </div>
 
           <div className="p-6 border-t border-stone-100 bg-stone-50">
-             <div className="flex justify-between items-center mb-4">
+             <div className="flex justify-between items-center mb-2">
                 <span className="text-stone-600 font-medium">Liczba usług:</span>
-                <span className="text-xl font-bold text-stone-900">{items.length}</span>
+                <span className="font-bold text-stone-900">{items.length}</span>
              </div>
+             {items.length > 0 && (
+               <div className="flex justify-between items-center mb-4 text-sm text-stone-500">
+                  <span>Suma (szacunkowa):</span>
+                  <span>~ {calculateTotal()} PLN</span>
+               </div>
+             )}
              <Button className="w-full h-12 rounded-xl bg-stone-900 hover:bg-stone-800 text-white font-bold shadow-lg shadow-stone-900/20" onClick={() => {
                  onClose();
                  navigate("/kontakt");

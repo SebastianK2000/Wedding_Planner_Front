@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { 
   Star, MapPin, Sparkles, Heart, 
-  ArrowLeft, Music as MusicIcon, Mic2, Headphones, Check, PlayCircle, Loader2 
+  ArrowLeft, Music as MusicIcon, Mic2, Headphones, Check, Loader2, ShoppingBag
 } from "lucide-react";
 import api from "../lib/api";
 
@@ -29,19 +29,37 @@ function numberFmt(n: number) {
   return new Intl.NumberFormat("pl-PL").format(n);
 }
 
+function useMusicCart() {
+  const [cartIds, setCartIds] = useState<string[]>([]);
+  const update = async () => {
+    const isLoggedIn = !!localStorage.getItem("user");
+    if (isLoggedIn) {
+      try {
+        const res = await api.get("/user-favorites/");
+        setCartIds(res.data.filter((f: any) => f.servicetype === "musician").map((f: any) => String(f.serviceid)));
+      } catch (e) { console.error(e); }
+    } else {
+      const raw = localStorage.getItem(CART_KEY);
+      setCartIds(raw ? JSON.parse(raw).map((i: any) => String(i.id)) : []);
+    }
+  };
+  useEffect(() => {
+    update();
+    window.addEventListener("wp:cart:update", update);
+    return () => window.removeEventListener("wp:cart:update", update);
+  }, []);
+  return cartIds;
+}
+
 type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "nazwa";
 
 function MusicDetailsPage({ item, onBack, onAddToCart }: { item: MusicItem, onBack: () => void, onAddToCart: () => void }) {
-  const features: string[] = [
-    "Własne nagłośnienie",
-    "Oświetlenie parkietu",
-    "Prowadzenie zabaw",
-    "Dojazd do 100km",
-    "Biesiada przy stołach",
-  ];
-
+  const features: string[] = ["Własne nagłośnienie", "Oświetlenie parkietu", "Prowadzenie zabaw", "Dojazd do 100km", "Biesiada przy stołach"];
   const TypeIcon = item.type.toLowerCase().includes("dj") ? Headphones : Mic2;
   const rating = item.rating || 4.5;
+  
+  const cartIds = useMusicCart();
+  const isInCart = cartIds.includes(String(item.id));
 
   return (
     <div className="min-h-screen bg-white animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -89,48 +107,28 @@ function MusicDetailsPage({ item, onBack, onAddToCart }: { item: MusicItem, onBa
                </div>
             </div>
           </div>
-
-          <div>
-            <h2 className="text-2xl font-semibold mb-4 text-stone-900">O wykonawcy</h2>
-            <p className="text-lg text-stone-600 leading-relaxed">{item.desc || "Brak opisu wykonawcy."}</p>
-          </div>
-
-          <div>
-            <h2 className="text-2xl font-semibold mb-6 text-stone-900">W ofercie</h2>
+          <div><h2 className="text-2xl font-semibold mb-4 text-stone-900">O wykonawcy</h2><p className="text-lg text-stone-600 leading-relaxed">{item.desc || "Brak opisu wykonawcy."}</p></div>
+          <div><h2 className="text-2xl font-semibold mb-6 text-stone-900">W ofercie</h2>
             <div className="grid grid-cols-2 gap-4">
-              {features.map((f, i) => (
-                <div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-stone-50 text-stone-700">
-                  <Check className="h-5 w-5 text-accent-500"/> <span className="font-medium">{f}</span>
-                </div>
-              ))}
+              {features.map((f, i) => (<div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-stone-50 text-stone-700"><Check className="h-5 w-5 text-accent-500"/> <span className="font-medium">{f}</span></div>))}
             </div>
-          </div>
-
-          <div className="rounded-3xl bg-stone-900 p-8 text-white flex items-center justify-between overflow-hidden relative">
-              <div className="relative z-10">
-                  <h3 className="text-xl font-bold mb-1">Posłuchaj demo</h3>
-                  <p className="text-stone-400 text-sm">Sprawdź jak brzmią na żywo</p>
-              </div>
-              <Button size="icon" className="h-14 w-14 rounded-full bg-white text-stone-900 hover:bg-stone-200 relative z-10">
-                  <PlayCircle className="h-8 w-8" />
-              </Button>
-              <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-gradient-to-l from-purple-900/50 to-transparent pointer-events-none" />
           </div>
         </div>
 
         <div className="relative">
           <div className="sticky top-32 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-xl shadow-stone-200/50">
             <div className="flex items-end justify-between mb-6">
-               <div>
-                 <span className="text-3xl font-bold text-stone-900">{numberFmt(item.priceFrom)} zł</span>
-               </div>
-               <div className="flex items-center gap-1 text-sm font-medium">
-                 <Star className="h-4 w-4 fill-stone-900" /> {rating.toFixed(1)}
-               </div>
+               <div><span className="text-3xl font-bold text-stone-900">{numberFmt(item.priceFrom)} zł</span></div>
+               <div className="flex items-center gap-1 text-sm font-medium"><Star className="h-4 w-4 fill-stone-900" /> {rating.toFixed(1)}</div>
             </div>
             <div className="space-y-4 mb-6">
-              <Button onClick={onAddToCart} size="lg" className="w-full h-14 text-lg rounded-xl bg-purple-600 hover:bg-purple-700 shadow-lg shadow-purple-200">
-                Dodaj do koszyka
+              <Button 
+                onClick={onAddToCart} 
+                disabled={isInCart}
+                size="lg" 
+                className={`w-full h-14 text-lg rounded-xl shadow-lg transition-all ${isInCart ? "bg-stone-200 text-stone-500 cursor-not-allowed shadow-none hover:bg-stone-200" : "bg-purple-600 hover:bg-purple-700 shadow-purple-200"}`}
+              >
+                {isInCart ? "Już w koszyku" : "Dodaj do koszyka"}
               </Button>
             </div>
           </div>
@@ -149,6 +147,8 @@ export default function MusicPro() {
   const [viewDetailsId, setViewDetailsId] = useState<string | number | null>(null);
   const [musicList, setMusicList] = useState<MusicItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const cartIds = useMusicCart();
 
   useEffect(() => {
     const fetchMusic = async () => {
@@ -182,18 +182,30 @@ export default function MusicPro() {
   const types = useMemo(() => ["Wszystkie", ...Array.from(new Set(musicList.map(m => m.type)))], [musicList]);
   const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(musicList.map(m => m.city)))], [musicList]);
 
-  const addToCart = (item: MusicItem) => {
-    try {
-      const raw = localStorage.getItem(CART_KEY);
-      const prev = raw ? JSON.parse(raw) : [];
-      if (!prev.find((p: any) => String(p.id) === String(item.id))) {
-        localStorage.setItem(CART_KEY, JSON.stringify([...prev, item]));
+  const addToCart = async (item: MusicItem) => {
+    if (cartIds.includes(String(item.id))) return;
+
+    const isLoggedIn = !!localStorage.getItem("user");
+    if (isLoggedIn) {
+      try {
+        await api.post("/user-favorites/", { serviceid: item.id, servicetype: "musician" });
         window.dispatchEvent(new Event("wp:cart:update"));
-        alert("Dodano wykonawcę do koszyka!");
-      } else {
-        alert("Wykonawca jest już w koszyku.");
+        alert("Dodano wykonawcę do koszyka (konto)!");
+      } catch (e: any) {
+        if (e.response && (e.response.status === 400 || e.response.status === 409)) alert("Ten wykonawca jest już w Twoim koszyku.");
+        else alert("Błąd API.");
       }
-    } catch (e) { console.error(e) }
+    } else {
+      try {
+        const raw = localStorage.getItem(CART_KEY);
+        const prev = raw ? JSON.parse(raw) : [];
+        if (!prev.find((p: any) => String(p.id) === String(item.id))) {
+          localStorage.setItem(CART_KEY, JSON.stringify([...prev, item]));
+          window.dispatchEvent(new Event("wp:cart:update"));
+          alert("Dodano wykonawcę do koszyka!");
+        } else alert("Wykonawca jest już w koszyku.");
+      } catch (e) { console.error(e) }
+    }
   };
 
   const filtered = useMemo(() => {
@@ -205,7 +217,6 @@ export default function MusicPro() {
       const matchesPrice = m.priceFrom >= priceRange[0] && m.priceFrom <= priceRange[1];
       return matchesText && matchesCity && matchesType && matchesPrice;
     });
-
     switch (sort) {
       case "cena-rosn": items.sort((a, b) => a.priceFrom - b.priceFrom); break;
       case "cena-malej": items.sort((a, b) => b.priceFrom - a.priceFrom); break;
@@ -216,9 +227,7 @@ export default function MusicPro() {
   }, [musicList, q, city, mtype, priceRange, sort]);
 
   const [shortlist, setShortlist] = useState<string[]>(() => {
-    try {
-      return JSON.parse(localStorage.getItem("wp_music_shortlist") || "[]");
-    } catch { return [] }
+    try { return JSON.parse(localStorage.getItem("wp_music_shortlist") || "[]"); } catch { return [] }
   });
 
   const toggleShortlist = (e: React.MouseEvent, id: string | number) => {
@@ -255,33 +264,10 @@ export default function MusicPro() {
               <h2 className="font-semibold text-stone-900">Filtry</h2>
               <div className="space-y-5">
                 <Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Szukaj..." className="bg-stone-50 border-transparent rounded-xl" />
-                <Select value={city} onValueChange={setCity}>
-                  <SelectTrigger className="bg-stone-50 border-transparent rounded-xl"><SelectValue/></SelectTrigger>
-                  <SelectContent>{cities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                </Select>
-                <Select value={mtype} onValueChange={setMtype}>
-                  <SelectTrigger className="bg-stone-50 border-transparent rounded-xl"><SelectValue/></SelectTrigger>
-                  <SelectContent>{types.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                </Select>
-                <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                     <span className="text-stone-600">Cena od</span>
-                     <span className="font-medium">{numberFmt(priceRange[0])} zł</span>
-                    </div>
-                    <Slider value={[priceRange[0]]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceRange([v, priceRange[1]])} className="py-2" />
-                </div>
-                <div className="space-y-2 pt-2 border-t border-stone-100">
-                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Sortowanie</label>
-                  <Select value={sort} onValueChange={(v)=>setSort(v as SortKey)}>
-                    <SelectTrigger className="bg-transparent border-stone-200 rounded-xl"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="rekomendowane">Rekomendowane</SelectItem>
-                      <SelectItem value="cena-rosn">Cena: rosnąco</SelectItem>
-                      <SelectItem value="cena-malej">Cena: malejąco</SelectItem>
-                      <SelectItem value="nazwa">Nazwa A-Z</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <Select value={city} onValueChange={setCity}><SelectTrigger className="bg-stone-50 border-transparent rounded-xl"><SelectValue/></SelectTrigger><SelectContent>{cities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
+                <Select value={mtype} onValueChange={setMtype}><SelectTrigger className="bg-stone-50 border-transparent rounded-xl"><SelectValue/></SelectTrigger><SelectContent>{types.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent></Select>
+                <div className="space-y-3"><div className="flex justify-between text-sm"><span className="text-stone-600">Cena od</span><span className="font-medium">{numberFmt(priceRange[0])} zł</span></div><Slider value={[priceRange[0]]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceRange([v, priceRange[1]])} className="py-2" /></div>
+                <div className="space-y-2 pt-2 border-t border-stone-100"><label className="text-xs font-medium uppercase tracking-wider text-stone-400">Sortowanie</label><Select value={sort} onValueChange={(v)=>setSort(v as SortKey)}><SelectTrigger className="bg-transparent border-stone-200 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="rekomendowane">Rekomendowane</SelectItem><SelectItem value="cena-rosn">Cena: rosnąco</SelectItem><SelectItem value="cena-malej">Cena: malejąco</SelectItem><SelectItem value="nazwa">Nazwa A-Z</SelectItem></SelectContent></Select></div>
               </div>
             </div>
           </aside>
@@ -289,7 +275,9 @@ export default function MusicPro() {
           <section className="lg:col-span-9">
              {loading ? <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-purple-500" /></div> : (
                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {filtered.map((item) => (
+                {filtered.map((item) => {
+                  const isInCart = cartIds.includes(String(item.id));
+                  return (
                   <Card key={item.id} className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border-0 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                     <div className="relative aspect-[4/3] w-full overflow-hidden">
                       <img src={item.img} alt={item.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
@@ -306,10 +294,17 @@ export default function MusicPro() {
                     </CardContent>
                     <CardFooter className="p-5 pt-0 gap-3">
                         <Button onClick={() => setViewDetailsId(item.id)} variant="outline" className="flex-1 rounded-xl" size="sm">Szczegóły</Button>
-                        <Button onClick={()=>addToCart(item)} className="flex-1 rounded-xl bg-stone-900 text-white shadow-lg shadow-stone-900/20" size="sm">Dodaj do koszyka</Button>
+                        <Button 
+                          onClick={()=>addToCart(item)} 
+                          disabled={isInCart}
+                          className={`flex-1 rounded-xl shadow-lg transition-colors ${isInCart ? "bg-stone-200 text-stone-500 cursor-not-allowed shadow-none" : "bg-stone-900 text-white hover:bg-stone-800 shadow-stone-900/20"}`}
+                          size="sm"
+                        >
+                          {isInCart ? <><ShoppingBag className="w-4 h-4 mr-1"/> W koszyku</> : "Dodaj"}
+                        </Button>
                     </CardFooter>
                   </Card>
-                ))}
+                )})}
               </div>
             )}
           </section>

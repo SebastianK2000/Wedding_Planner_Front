@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { 
   Star, MapPin, Sparkles, Heart,
-  ArrowLeft, Flower2, Scissors, Car, Gift, Check, Loader2 
+  ArrowLeft, Flower2, Scissors, Car, Gift, Check, Loader2, ShoppingBag 
 } from "lucide-react";
 import api from "../lib/api";
 
@@ -30,13 +30,32 @@ function numberFmt(n: number) {
   return new Intl.NumberFormat("pl-PL").format(n);
 }
 
+function useFloristCart() {
+  const [cartIds, setCartIds] = useState<string[]>([]);
+  const update = async () => {
+    const isLoggedIn = !!localStorage.getItem("user");
+    if (isLoggedIn) {
+      try {
+        const res = await api.get("/user-favorites/");
+        setCartIds(res.data.filter((f: any) => f.servicetype === "florist").map((f: any) => String(f.serviceid)));
+      } catch (e) { console.error(e); }
+    } else {
+      const raw = localStorage.getItem(CART_KEY);
+      setCartIds(raw ? JSON.parse(raw).map((i: any) => String(i.id)) : []);
+    }
+  };
+  useEffect(() => {
+    update();
+    window.addEventListener("wp:cart:update", update);
+    return () => window.removeEventListener("wp:cart:update", update);
+  }, []);
+  return cartIds;
+}
+
 type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "ocena";
 
 function FloristDetailsPage({ item, onBack, onAddToCart }: { item: FloristItem, onBack: () => void, onAddToCart: () => void }) {
-  const features = item.features && item.features.length > 0 
-    ? item.features 
-    : ["Dekoracja sali", "Bukiety ślubne", "Dekoracja auta", "Butonierki", "Brama weselna"];
-
+  const features = item.features && item.features.length > 0 ? item.features : ["Dekoracja sali", "Bukiety ślubne", "Dekoracja auta", "Butonierki", "Brama weselna"];
   const getIcon = (feature: string) => {
     const f = feature.toLowerCase();
     if(f.includes("auto") || f.includes("transport")) return <Car className="h-5 w-5"/>;
@@ -45,8 +64,9 @@ function FloristDetailsPage({ item, onBack, onAddToCart }: { item: FloristItem, 
     if(f.includes("prezent") || f.includes("box")) return <Gift className="h-5 w-5"/>;
     return <Check className="h-5 w-5"/>;
   }
-
   const rating = item.rating || 4.5;
+  const cartIds = useFloristCart();
+  const isInCart = cartIds.includes(String(item.id));
 
   return (
     <div className="min-h-screen bg-white animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -91,41 +111,25 @@ function FloristDetailsPage({ item, onBack, onAddToCart }: { item: FloristItem, 
                </div>
             </div>
           </div>
-
-          <div>
-            <h2 className="text-2xl font-semibold mb-4 text-stone-900">O firmie</h2>
-            <p className="text-lg text-stone-600 leading-relaxed">{item.desc || "Brak opisu."}</p>
-          </div>
-
-          <div>
-            <h2 className="text-2xl font-semibold mb-6 text-stone-900">Zakres usług</h2>
-            <div className="grid grid-cols-2 gap-4">
-              {features.map((f: string, i: number) => (
-                <div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-stone-50 text-stone-700">
-                  {getIcon(f)} <span className="font-medium">{f}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <div><h2 className="text-2xl font-semibold mb-4 text-stone-900">O firmie</h2><p className="text-lg text-stone-600 leading-relaxed">{item.desc || "Brak opisu."}</p></div>
+          <div><h2 className="text-2xl font-semibold mb-6 text-stone-900">Zakres usług</h2><div className="grid grid-cols-2 gap-4">{features.map((f: string, i: number) => (<div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-stone-50 text-stone-700">{getIcon(f)} <span className="font-medium">{f}</span></div>))}</div></div>
         </div>
-
         <div className="relative">
           <div className="sticky top-32 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-xl shadow-stone-200/50">
                <div className="flex items-end justify-between mb-6">
-               <div>
-                 <span className="text-3xl font-bold text-stone-900">{numberFmt(item.priceFrom)} zł</span>
-               </div>
-               <div className="flex items-center gap-1 text-sm font-medium">
-                 <Star className="h-4 w-4 fill-stone-900" /> {rating.toFixed(1)}
-               </div>
+               <div><span className="text-3xl font-bold text-stone-900">{numberFmt(item.priceFrom)} zł</span></div>
+               <div className="flex items-center gap-1 text-sm font-medium"><Star className="h-4 w-4 fill-stone-900" /> {rating.toFixed(1)}</div>
             </div>
-
             <div className="space-y-4 mb-6">
-              <Button onClick={onAddToCart} size="lg" className="w-full h-14 text-lg rounded-xl bg-rose-600 hover:bg-rose-700 shadow-lg shadow-rose-200">
-                Dodaj do koszyka
+              <Button 
+                onClick={onAddToCart} 
+                disabled={isInCart}
+                size="lg" 
+                className={`w-full h-14 text-lg rounded-xl shadow-lg transition-all ${isInCart ? "bg-stone-200 text-stone-500 cursor-not-allowed shadow-none hover:bg-stone-200" : "bg-rose-600 hover:bg-rose-700 shadow-rose-200"}`}
+              >
+                {isInCart ? "W koszyku" : "Dodaj do koszyka"}
               </Button>
             </div>
-            
             <div className="pt-4 border-t border-stone-100 text-center text-sm text-stone-500">
                 <span className="flex items-center justify-center gap-2"><Check className="h-4 w-4 text-green-500"/> Wolne terminy na 2025</span>
             </div>
@@ -144,6 +148,8 @@ export default function FloristPro() {
   const [viewDetailsId, setViewDetailsId] = useState<string | number | null>(null);
   const [florists, setFlorists] = useState<FloristItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const cartIds = useFloristCart();
 
   useEffect(() => {
     const fetchFlorists = async () => {
@@ -182,18 +188,30 @@ export default function FloristPro() {
 
   const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(florists.map(f => f.city)))], [florists]);
 
-  const addToCart = (item: FloristItem) => {
-    try {
-      const raw = localStorage.getItem(CART_KEY);
-      const prev: FloristItem[] = raw ? JSON.parse(raw) : [];
-      if (!prev.some((p) => String(p.id) === String(item.id))) {
-        localStorage.setItem(CART_KEY, JSON.stringify([...prev, item]));
+  const addToCart = async (item: FloristItem) => {
+    if (cartIds.includes(String(item.id))) return;
+
+    const isLoggedIn = !!localStorage.getItem("user");
+    if (isLoggedIn) {
+      try {
+        await api.post("/user-favorites/", { serviceid: item.id, servicetype: "florist" });
         window.dispatchEvent(new Event("wp:cart:update"));
-        alert("Dodano dekoracje do koszyka!");
-      } else {
-        alert("Ta oferta znajduje się już w Twoim koszyku.");
+        alert("Dodano dekoracje do koszyka (konto)!");
+      } catch (e: any) {
+         if (e.response && (e.response.status === 400 || e.response.status === 409)) alert("Ta oferta znajduje się już w Twoim koszyku.");
+         else alert("Błąd podczas dodawania.");
       }
-    } catch (e) { console.error(e) }
+    } else {
+      try {
+        const raw = localStorage.getItem(CART_KEY);
+        const prev: FloristItem[] = raw ? JSON.parse(raw) : [];
+        if (!prev.some((p) => String(p.id) === String(item.id))) {
+          localStorage.setItem(CART_KEY, JSON.stringify([...prev, item]));
+          window.dispatchEvent(new Event("wp:cart:update"));
+          alert("Dodano dekoracje do koszyka!");
+        } else alert("Ta oferta znajduje się już w Twoim koszyku.");
+      } catch (e) { console.error(e) }
+    }
   };
 
   const filtered = useMemo(() => {
@@ -203,7 +221,6 @@ export default function FloristPro() {
       f.priceFrom >= priceRange[0] &&
       f.priceFrom <= priceRange[1]
     );
-
     switch (sort) {
       case "cena-rosn": items.sort((a, b) => a.priceFrom - b.priceFrom); break;
       case "cena-malej": items.sort((a, b) => b.priceFrom - a.priceFrom); break;
@@ -253,36 +270,10 @@ export default function FloristPro() {
             <div className="sticky top-8 space-y-6 rounded-3xl bg-white p-6 shadow-sm ring-1 ring-black/5">
               <h2 className="font-semibold text-stone-900">Filtry</h2>
               <div className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Szukaj</label>
-                  <Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Nazwa firmy..." className="bg-stone-50 border-transparent rounded-xl" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Lokalizacja</label>
-                  <Select value={city} onValueChange={setCity}>
-                    <SelectTrigger className="bg-stone-50 border-transparent rounded-xl"><SelectValue/></SelectTrigger>
-                    <SelectContent>{cities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                     <span className="text-stone-600">Cena do</span>
-                     <span className="font-medium">{numberFmt(priceRange[1])} zł</span>
-                    </div>
-                  <Slider value={[priceRange[1]]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceRange([priceRange[0], v])} />
-                </div>
-                <div className="space-y-2 pt-2 border-t border-stone-100">
-                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Sortowanie</label>
-                  <Select value={sort} onValueChange={(v)=>setSort(v as SortKey)}>
-                    <SelectTrigger className="bg-transparent border-stone-200 rounded-xl"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="rekomendowane">Rekomendowane</SelectItem>
-                      <SelectItem value="cena-rosn">Cena: rosnąco</SelectItem>
-                      <SelectItem value="cena-malej">Cena: malejąco</SelectItem>
-                      <SelectItem value="ocena">Ocena: najwyższa</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <div className="space-y-2"><label className="text-xs font-medium uppercase tracking-wider text-stone-400">Szukaj</label><Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Nazwa firmy..." className="bg-stone-50 border-transparent rounded-xl" /></div>
+                <div className="space-y-2"><label className="text-xs font-medium uppercase tracking-wider text-stone-400">Lokalizacja</label><Select value={city} onValueChange={setCity}><SelectTrigger className="bg-stone-50 border-transparent rounded-xl"><SelectValue/></SelectTrigger><SelectContent>{cities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-3"><div className="flex justify-between text-sm"><span className="text-stone-600">Cena do</span><span className="font-medium">{numberFmt(priceRange[1])} zł</span></div><Slider value={[priceRange[1]]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceRange([priceRange[0], v])} /></div>
+                <div className="space-y-2 pt-2 border-t border-stone-100"><label className="text-xs font-medium uppercase tracking-wider text-stone-400">Sortowanie</label><Select value={sort} onValueChange={(v)=>setSort(v as SortKey)}><SelectTrigger className="bg-transparent border-stone-200 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="rekomendowane">Rekomendowane</SelectItem><SelectItem value="cena-rosn">Cena: rosnąco</SelectItem><SelectItem value="cena-malej">Cena: malejąco</SelectItem><SelectItem value="ocena">Ocena: najwyższa</SelectItem></SelectContent></Select></div>
               </div>
             </div>
           </aside>
@@ -290,7 +281,9 @@ export default function FloristPro() {
           <section className="lg:col-span-9">
              {loading ? <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-rose-500" /></div> : (
                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                 {filtered.map((item) => (
+                 {filtered.map((item) => {
+                   const isInCart = cartIds.includes(String(item.id));
+                   return (
                    <Card key={item.id} className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border-0 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                       <div className="relative aspect-[4/3] w-full overflow-hidden">
                         <img src={item.image} alt={item.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
@@ -308,10 +301,17 @@ export default function FloristPro() {
                       </CardContent>
                       <CardFooter className="p-5 pt-0 gap-3">
                           <Button onClick={() => setViewDetailsId(item.id)} variant="outline" className="flex-1 rounded-xl" size="sm">Szczegóły</Button>
-                          <Button onClick={() => addToCart(item)} className="flex-1 rounded-xl bg-stone-900 text-white shadow-lg shadow-stone-900/20" size="sm">Dodaj do koszyka</Button>
+                          <Button 
+                            onClick={() => addToCart(item)} 
+                            disabled={isInCart}
+                            className={`flex-1 rounded-xl shadow-lg transition-colors ${isInCart ? "bg-stone-200 text-stone-500 cursor-not-allowed shadow-none" : "bg-stone-900 text-white hover:bg-stone-800 shadow-stone-900/20"}`}
+                            size="sm"
+                          >
+                            {isInCart ? <><ShoppingBag className="w-4 h-4 mr-1"/> W koszyku</> : "Dodaj"}
+                          </Button>
                       </CardFooter>
                    </Card>
-                 ))}
+                 )})}
                </div>
              )}
           </section>

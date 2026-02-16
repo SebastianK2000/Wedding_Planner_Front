@@ -8,7 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
 import { 
   Star, MapPin, Sparkles, Heart, 
-  ArrowLeft, Car, Users, Check, Loader2 
+  ArrowLeft, Car, Users, Check, Loader2, ShoppingBag 
 } from "lucide-react";
 import api from "../lib/api";
 
@@ -30,12 +30,34 @@ function numberFmt(n: number) {
   return new Intl.NumberFormat("pl-PL").format(n);
 }
 
+function useTransportCart() {
+  const [cartIds, setCartIds] = useState<string[]>([]);
+  const update = async () => {
+    const isLoggedIn = !!localStorage.getItem("user");
+    if (isLoggedIn) {
+      try {
+        const res = await api.get("/user-favorites/");
+        setCartIds(res.data.filter((f: any) => f.servicetype === "transport").map((f: any) => String(f.serviceid)));
+      } catch (e) { console.error(e); }
+    } else {
+      const raw = localStorage.getItem(CART_KEY);
+      setCartIds(raw ? JSON.parse(raw).map((i: any) => String(i.id)) : []);
+    }
+  };
+  useEffect(() => {
+    update();
+    window.addEventListener("wp:cart:update", update);
+    return () => window.removeEventListener("wp:cart:update", update);
+  }, []);
+  return cartIds;
+}
+
 type SortKey = "rekomendowane" | "cena-rosn" | "cena-malej" | "pojemnosc";
 
 function TransportDetailsPage({ item, onBack, onAddToCart }: { item: TransportItem, onBack: () => void, onAddToCart: () => void }) {
-  const features = item.features && item.features.length > 0 
-    ? item.features 
-    : ["Klimatyzacja", "Skórzana tapicerka", "Dekoracja auta", "Elegancki kierowca"];
+  const features = item.features && item.features.length > 0 ? item.features : ["Klimatyzacja", "Skórzana tapicerka", "Dekoracja auta", "Elegancki kierowca"];
+  const cartIds = useTransportCart();
+  const isInCart = cartIds.includes(String(item.id));
 
   return (
     <div className="min-h-screen bg-white animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -78,20 +100,8 @@ function TransportDetailsPage({ item, onBack, onAddToCart }: { item: TransportIt
                </div>
             </div>
           </div>
-          <div>
-            <h2 className="text-2xl font-semibold mb-4 text-stone-900">O pojeździe</h2>
-            <p className="text-lg text-stone-600 leading-relaxed">{item.description || "Luksusowy transport na Twoje wesele."}</p>
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold mb-6 text-stone-900">Udogodnienia</h2>
-            <div className="grid grid-cols-2 gap-4">
-              {features.map((f, i) => (
-                <div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-stone-50 text-stone-700">
-                  <Check className="h-5 w-5 text-blue-500"/> <span className="font-medium">{f}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          <div><h2 className="text-2xl font-semibold mb-4 text-stone-900">O pojeździe</h2><p className="text-lg text-stone-600 leading-relaxed">{item.description || "Luksusowy transport na Twoje wesele."}</p></div>
+          <div><h2 className="text-2xl font-semibold mb-6 text-stone-900">Udogodnienia</h2><div className="grid grid-cols-2 gap-4">{features.map((f, i) => (<div key={i} className="flex items-center gap-3 p-4 rounded-2xl bg-stone-50 text-stone-700"><Check className="h-5 w-5 text-blue-500"/> <span className="font-medium">{f}</span></div>))}</div></div>
         </div>
         <div className="relative">
           <div className="sticky top-32 rounded-[2rem] border border-stone-200 bg-white p-6 shadow-xl shadow-stone-200/50">
@@ -100,8 +110,13 @@ function TransportDetailsPage({ item, onBack, onAddToCart }: { item: TransportIt
                <div className="flex items-center gap-1 text-sm font-medium"><Star className="h-4 w-4 fill-stone-900" /> {item.rating.toFixed(1)}</div>
             </div>
             <div className="space-y-4 mb-6">
-              <Button onClick={onAddToCart} size="lg" className="w-full h-14 text-lg rounded-xl bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-200">
-                Dodaj do koszyka
+              <Button 
+                onClick={onAddToCart} 
+                disabled={isInCart}
+                size="lg" 
+                className={`w-full h-14 text-lg rounded-xl shadow-lg transition-all ${isInCart ? "bg-stone-200 text-stone-500 cursor-not-allowed shadow-none hover:bg-stone-200" : "bg-blue-600 hover:bg-blue-700 shadow-blue-200"}`}
+              >
+                {isInCart ? "Już w koszyku" : "Dodaj do koszyka"}
               </Button>
             </div>
           </div>
@@ -121,6 +136,8 @@ export default function TransportPro() {
   const [viewDetailsId, setViewDetailsId] = useState<string | number | null>(null);
   const [items, setItems] = useState<TransportItem[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const cartIds = useTransportCart();
 
   useEffect(() => {
     const fetchTransport = async () => {
@@ -159,16 +176,30 @@ export default function TransportPro() {
 
   const cities = useMemo(() => ["Wszystkie", ...Array.from(new Set(items.map(i => i.city)))], [items]);
 
-  const addToCart = (item: TransportItem) => {
-    try {
-      const raw = localStorage.getItem(CART_KEY);
-      const prev = raw ? JSON.parse(raw) : [];
-      if (!prev.find((p: any) => String(p.id) === String(item.id))) {
-        localStorage.setItem(CART_KEY, JSON.stringify([...prev, item]));
-        window.dispatchEvent(new Event("wp:cart:update"));
-        alert("Dodano transport do koszyka!");
-      } else { alert("Ten pojazd jest już w Twoim koszyku."); }
-    } catch (e) { console.error(e) }
+  const addToCart = async (item: TransportItem) => {
+    if (cartIds.includes(String(item.id))) return;
+
+    const isLoggedIn = !!localStorage.getItem("user");
+    if (isLoggedIn) {
+       try {
+         await api.post("/user-favorites/", { serviceid: item.id, servicetype: "transport" });
+         window.dispatchEvent(new Event("wp:cart:update"));
+         alert("Dodano transport do koszyka (konto)!");
+       } catch (e: any) {
+         if (e.response && (e.response.status === 400 || e.response.status === 409)) alert("Ten pojazd jest już w Twoim koszyku.");
+         else alert("Błąd API.");
+       }
+    } else {
+      try {
+        const raw = localStorage.getItem(CART_KEY);
+        const prev = raw ? JSON.parse(raw) : [];
+        if (!prev.find((p: any) => String(p.id) === String(item.id))) {
+          localStorage.setItem(CART_KEY, JSON.stringify([...prev, item]));
+          window.dispatchEvent(new Event("wp:cart:update"));
+          alert("Dodano transport do koszyka!");
+        } else alert("Ten pojazd jest już w Twoim koszyku.");
+      } catch (e) { console.error(e) }
+    }
   };
 
   const filtered = useMemo(() => {
@@ -228,56 +259,20 @@ export default function TransportPro() {
                  {(q || city !== "Wszystkie") && <Button variant="ghost" className="h-auto p-0 text-xs text-rose-600" onClick={()=>{setQ(""); setCity("Wszystkie"); setCapacity([0]); setPriceFrom(minPrice); setPriceTo(maxPrice);}}>Reset</Button>}
               </div>
               <div className="space-y-5">
-                <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Szukaj</label>
-                  <Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Model auta..." className="bg-stone-50 border-transparent rounded-xl" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Lokalizacja</label>
-                  <Select value={city} onValueChange={setCity}>
-                    <SelectTrigger className="bg-stone-50 border-transparent rounded-xl"><SelectValue/></SelectTrigger>
-                    <SelectContent>{cities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                     <span className="text-stone-600">Pojemność</span>
-                     <span className="font-medium">{capacity[0]}+ os.</span>
-                    </div>
-                  <Slider value={capacity} min={0} max={60} step={1} onValueChange={setCapacity} />
-                </div>
-                <div className="space-y-3">
-                    <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Budżet</label>
-                    <div className="flex justify-between text-sm mb-1">
-                     <span className="text-stone-600">Cena od</span>
-                     <span className="font-medium">{numberFmt(priceFrom)} zł</span>
-                    </div>
-                    <Slider value={[priceFrom]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceFrom(v)} />
-                    <div className="flex justify-between text-sm mt-3 mb-1">
-                     <span className="text-stone-600">Cena do</span>
-                     <span className="font-medium">{numberFmt(priceTo)} zł</span>
-                    </div>
-                    <Slider value={[priceTo]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceTo(v)} />
-                </div>
-                <div className="space-y-2 pt-2 border-t border-stone-100">
-                  <label className="text-xs font-medium uppercase tracking-wider text-stone-400">Sortowanie</label>
-                  <Select value={sort} onValueChange={(v)=>setSort(v as SortKey)}>
-                    <SelectTrigger className="bg-transparent border-stone-200 rounded-xl"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="rekomendowane">Rekomendowane</SelectItem>
-                      <SelectItem value="cena-rosn">Cena: rosnąco</SelectItem>
-                      <SelectItem value="cena-malej">Cena: malejąco</SelectItem>
-                      <SelectItem value="pojemnosc">Liczba miejsc</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+                <div className="space-y-2"><label className="text-xs font-medium uppercase tracking-wider text-stone-400">Szukaj</label><Input value={q} onChange={(e)=>setQ(e.target.value)} placeholder="Model auta..." className="bg-stone-50 border-transparent rounded-xl" /></div>
+                <div className="space-y-2"><label className="text-xs font-medium uppercase tracking-wider text-stone-400">Lokalizacja</label><Select value={city} onValueChange={setCity}><SelectTrigger className="bg-stone-50 border-transparent rounded-xl"><SelectValue/></SelectTrigger><SelectContent>{cities.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select></div>
+                <div className="space-y-3"><div className="flex justify-between text-sm"><span className="text-stone-600">Pojemność</span><span className="font-medium">{capacity[0]}+ os.</span></div><Slider value={capacity} min={0} max={60} step={1} onValueChange={setCapacity} /></div>
+                <div className="space-y-3"><label className="text-xs font-medium uppercase tracking-wider text-stone-400">Budżet</label><div className="flex justify-between text-sm mb-1"><span className="text-stone-600">Cena od</span><span className="font-medium">{numberFmt(priceFrom)} zł</span></div><Slider value={[priceFrom]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceFrom(v)} /><div className="flex justify-between text-sm mt-3 mb-1"><span className="text-stone-600">Cena do</span><span className="font-medium">{numberFmt(priceTo)} zł</span></div><Slider value={[priceTo]} min={minPrice} max={maxPrice} step={100} onValueChange={([v]) => setPriceTo(v)} /></div>
+                <div className="space-y-2 pt-2 border-t border-stone-100"><label className="text-xs font-medium uppercase tracking-wider text-stone-400">Sortowanie</label><Select value={sort} onValueChange={(v)=>setSort(v as SortKey)}><SelectTrigger className="bg-transparent border-stone-200 rounded-xl"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="rekomendowane">Rekomendowane</SelectItem><SelectItem value="cena-rosn">Cena: rosnąco</SelectItem><SelectItem value="cena-malej">Cena: malejąco</SelectItem><SelectItem value="pojemnosc">Liczba miejsc</SelectItem></SelectContent></Select></div>
               </div>
             </div>
           </aside>
           <section className="lg:col-span-9">
              {loading ? <div className="flex h-64 items-center justify-center"><Loader2 className="animate-spin text-blue-500" /></div> : (
                <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3">
-                {filtered.map((item) => (
+                {filtered.map((item) => {
+                  const isInCart = cartIds.includes(String(item.id));
+                  return (
                   <Card key={item.id} className="group relative flex flex-col overflow-hidden rounded-[1.5rem] border-0 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
                     <div className="relative aspect-[4/3] w-full overflow-hidden">
                       <img src={item.image} alt={item.name} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
@@ -290,10 +285,7 @@ export default function TransportPro() {
                       <div className="absolute top-3 left-3 z-10 flex gap-2">
                            <Badge className="bg-white/90 text-stone-800 backdrop-blur-sm px-2"><Star className="mr-1 h-3 w-3 fill-yellow-400 text-yellow-400" /> {item.rating.toFixed(1)}</Badge>
                       </div>
-                      <div className="absolute bottom-3 left-4 z-10 text-white">
-                           <p className="text-xs font-medium text-white/80 uppercase tracking-wider">Wynajem od</p>
-                           <p className="text-xl font-bold">{numberFmt(item.priceFrom)} zł</p>
-                      </div>
+                      <div className="absolute bottom-3 left-4 z-10 text-white"><p className="text-xs font-medium text-white/80 uppercase tracking-wider">Wynajem od</p><p className="text-xl font-bold">{numberFmt(item.priceFrom)} zł</p></div>
                     </div>
                     <CardContent className="flex-1 p-5">
                         <h3 className="text-lg font-bold text-stone-900 leading-tight">{item.name}</h3>
@@ -301,10 +293,17 @@ export default function TransportPro() {
                     </CardContent>
                     <CardFooter className="p-5 pt-0 gap-3">
                         <Button onClick={() => setViewDetailsId(item.id)} variant="outline" className="flex-1 rounded-xl" size="sm">Szczegóły</Button>
-                        <Button onClick={()=>addToCart(item)} className="flex-1 rounded-xl bg-stone-900 text-white shadow-lg shadow-stone-900/20" size="sm">Dodaj do koszyka</Button>
+                        <Button 
+                          onClick={()=>addToCart(item)} 
+                          disabled={isInCart}
+                          className={`flex-1 rounded-xl shadow-lg transition-colors ${isInCart ? "bg-stone-200 text-stone-500 cursor-not-allowed shadow-none" : "bg-stone-900 text-white hover:bg-stone-800 shadow-stone-900/20"}`}
+                          size="sm"
+                        >
+                           {isInCart ? <><ShoppingBag className="w-4 h-4 mr-1"/> W koszyku</> : "Dodaj"}
+                        </Button>
                     </CardFooter>
                   </Card>
-                ))}
+                )})}
               </div>
             )}
           </section>

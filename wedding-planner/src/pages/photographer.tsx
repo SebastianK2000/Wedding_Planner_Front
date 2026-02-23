@@ -145,7 +145,7 @@ export default function PhotographerPro() {
           city: p.city || "Cała Polska",
           priceFrom: Number(p.pricefrom) || 3000,
           rating: 4.5 + (Number(p.id) % 5) / 10,
-          img: p.imageurl || "https://images.unsplash.com/photo-1554048612-387768052bf7?q=80&w=1200&auto=format&fit=crop",
+          img: p.imageurl,
           desc: p.description || "Profesjonalna fotografia ślubna.",
           tags: ["Reportaż", "Artystyczny"]
         }));
@@ -173,7 +173,7 @@ export default function PhotographerPro() {
        try {
          await api.post("/user-favorites/", { serviceid: item.id, servicetype: "photographer" });
          window.dispatchEvent(new Event("wp:cart:update"));
-         alert("Dodano fotografa do koszyka (konto)!");
+         alert("Dodano fotografa do koszyka!");
        } catch (e: any) {
          if (e.response && (e.response.status === 400 || e.response.status === 409)) alert("Już masz to w koszyku.");
          else alert("Błąd API.");

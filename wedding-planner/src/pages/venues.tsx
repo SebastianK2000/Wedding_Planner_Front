@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Badge } from "@/components/ui/badge";
-import { Star, MapPin, Filter, Sparkles, Heart, Users, Utensils, ArrowLeft, Wifi, Car, Music, Coffee, Check, Loader2, ShoppingBag } from "lucide-react";
+import { Star, MapPin, Filter, Sparkles, Heart, Users, Utensils, ArrowLeft, Wifi, Car, Music, Coffee, Check, Loader2, ShoppingBag, Globe } from "lucide-react";
 import api from "../lib/api";
 
 export interface Venue {
@@ -20,6 +19,37 @@ export interface Venue {
   image: string;
   description: string;
   features: string[];
+  url?: string;
+}
+
+interface ApiVenue {
+  id: string | number;
+  name?: string;
+  venue_name?: string;
+  city?: string;
+  capacity?: number;
+  price?: number;
+  priceperperson?: number;
+  price_per_person?: number;
+  cost?: number;
+  rating?: number;
+  tags?: string[] | string;
+  image?: string;
+  imageurl?: string;
+  image_url?: string;
+  description?: string;
+  features?: string[] | string;
+  url?: string;
+  website?: string;
+}
+
+interface CartItem {
+  id: string | number;
+}
+
+interface ApiFavorite {
+  serviceid: string | number;
+  servicetype: string;
 }
 
 function numberFmt(n: number) {
@@ -35,15 +65,17 @@ function useVenueCart() {
       try {
         const res = await api.get("/user-favorites/");
         const ids = res.data
-          .filter((f: any) => f.servicetype === "venue")
-          .map((f: any) => String(f.serviceid));
+          .filter((f: ApiFavorite) => f.servicetype === "venue")
+          .map((f: ApiFavorite) => String(f.serviceid));
         setCartIds(ids);
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error(e);
+      }
     } else {
       const raw = localStorage.getItem("wp_cart_venues");
       if (raw) {
-        const list = JSON.parse(raw);
-        setCartIds(list.map((i: any) => String(i.id)));
+        const list = JSON.parse(raw) as CartItem[];
+        setCartIds(list.map((i) => String(i.id)));
       } else {
         setCartIds([]);
       }
@@ -87,6 +119,11 @@ function VenueDetailsPage({ venue, onBack, onAddToCart }: { venue: Venue, onBack
           <ArrowLeft className="h-5 w-5" /> Wróć do listy
         </Button>
         <div className="flex gap-2">
+           {venue.url && (
+             <Button variant="outline" className="rounded-full" onClick={() => window.open(venue.url, "_blank")}>
+               <Globe className="h-4 w-4 mr-2" /> Strona WWW
+             </Button>
+           )}
            <Button variant="outline" className="rounded-full">Udostępnij</Button>
            <Button variant="outline" className="rounded-full"><Heart className="h-4 w-4 mr-2" /> Zapisz</Button>
         </div>
@@ -216,8 +253,8 @@ export default function VenuesPro() {
       const fetchVenues = async () => {
         setLoading(true);
         try {
-          const response = await api.get("/venues/");
-          const mappedVenues: Venue[] = response.data.map((v: any) => ({
+          const response = await api.get<ApiVenue[]>("/venues/");
+          const mappedVenues: Venue[] = response.data.map((v) => ({
               id: v.id,
               name: v.name || v.venue_name || "Bez nazwy",
               city: v.city || "Nieznane",
@@ -225,9 +262,10 @@ export default function VenuesPro() {
               pricePerPerson: Number(v.price) || Number(v.priceperperson) || Number(v.price_per_person) || Number(v.cost) || 0,
               rating: Number(v.rating) || 4.5,
               tags: Array.isArray(v.tags) ? v.tags : (v.tags ? v.tags.split(',') : []), 
-              image: v.image || v.image_url || "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?q=80&w=1200&auto=format&fit=crop",
+              image: v.imageurl || v.image_url || v.image || "", 
               description: v.description || "",
-              features: Array.isArray(v.features) ? v.features : (v.features ? v.features.split(',') : ["Parking", "WiFi"])
+              features: Array.isArray(v.features) ? v.features : (v.features ? v.features.split(',') : ["Parking", "WiFi"]),
+              url: v.url || v.website || undefined
           }));
           setVenues(mappedVenues);
         } catch (error) {
@@ -275,9 +313,10 @@ export default function VenuesPro() {
            servicetype: "venue"
         });
         window.dispatchEvent(new Event("wp:cart:update"));
-        alert("Dodano salę do koszyka (konto)!");
-      } catch (e: any) {
-        if (e.response && (e.response.status === 400 || e.response.status === 409)) {
+        alert("Dodano salę do koszyka!");
+      } catch (e: unknown) {
+        const err = e as { response?: { status: number } };
+        if (err.response && (err.response.status === 400 || err.response.status === 409)) {
            alert("Ta sala znajduje się już w Twoim koszyku.");
         } else {
            console.error(e);
@@ -288,8 +327,8 @@ export default function VenuesPro() {
       const KEY = "wp_cart_venues";
       try {
         const raw = localStorage.getItem(KEY);
-        const prev = raw ? JSON.parse(raw) : [];
-        if (!prev.find((p: any) => String(p.id) === String(venue.id))) {
+        const prev = raw ? (JSON.parse(raw) as CartItem[]) : [];
+        if (!prev.find((p) => String(p.id) === String(venue.id))) {
           localStorage.setItem(KEY, JSON.stringify([...prev, venue]));
           window.dispatchEvent(new Event("wp:cart:update"));
           alert("Dodano salę do koszyka!");
@@ -377,7 +416,6 @@ export default function VenuesPro() {
              <StatCard label="Od zł/os." value={venues.length > 0 ? numberFmt(minPrice) : "-"} />
           </div>
         </header>
-
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-12">
           <aside className="hidden lg:col-span-3 lg:block">

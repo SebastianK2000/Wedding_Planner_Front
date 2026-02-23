@@ -162,7 +162,7 @@ export default function FloristPro() {
             companyName: f.companyname || f.title || "Nieznana Firma",
             city: f.city || "Nieznane",
             priceFrom: Number(f.pricefrom) || Number(f.price) || 2000,
-            image: f.imageurl || "https://images.unsplash.com/photo-1526047932273-341f2a7631f9?q=80&w=1200&auto=format&fit=crop",
+            image: f.imageurl,
             desc: f.description || "Tworzymy wymarzone dekoracje na Twój ślub.",
             rating: Number(f.rating) || 4.5
         }));
@@ -196,7 +196,7 @@ export default function FloristPro() {
       try {
         await api.post("/user-favorites/", { serviceid: item.id, servicetype: "florist" });
         window.dispatchEvent(new Event("wp:cart:update"));
-        alert("Dodano dekoracje do koszyka (konto)!");
+        alert("Dodano dekoracje do koszyka!");
       } catch (e: any) {
          if (e.response && (e.response.status === 400 || e.response.status === 409)) alert("Ta oferta znajduje się już w Twoim koszyku.");
          else alert("Błąd podczas dodawania.");

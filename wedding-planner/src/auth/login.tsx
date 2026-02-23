@@ -2,12 +2,11 @@ import { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, Mail, Lock, ArrowRight, AlertCircle } from "lucide-react";
 import AuthLayout from "./auth_layout";
-import api from '../lib/api'; // Upewnij się, że stworzyłeś ten plik w poprzednim kroku
+import api from '../lib/api';
 
 export default function Login() {
   const navigate = useNavigate();
   
-  // --- STANY ---
   const [show, setShow] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -20,38 +19,33 @@ export default function Login() {
   
   const labelClass = "block text-xs font-medium text-stone-700 mb-1.5 ml-1";
 
-  // --- LOGIKA LOGOWANIA ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      // 1. Wysyłamy dane do Django
       const response = await api.post('/login/', {
         email: email,
         password: password
       });
 
-      // 2. Jeśli sukces - zapisujemy tokeny
       localStorage.setItem('access_token', response.data.access);
       localStorage.setItem('refresh_token', response.data.refresh);
       
-      // Opcjonalnie: zapisz dane usera, żeby wyświetlić "Witaj, Jan"
       if (response.data.user) {
         localStorage.setItem('user', JSON.stringify(response.data.user));
       }
 
       console.log("Zalogowano pomyślnie!");
       
-      // 3. Przekierowujemy na stronę główną (lub np. /guests)
       navigate('/'); 
 
     } catch (err) {
       console.error("Błąd logowania:", err);
-      // Sprawdzamy czy backend zwrócił konkretny błąd, czy to błąd sieci
-      if (err.response && err.response.data && err.response.data.error) {
-         setError(err.response.data.error); // np. "Błędny email lub hasło"
+      const error = err as any;
+      if (error.response && error.response.data && error.response.data.error) {
+         setError(error.response.data.error);
       } else {
          setError("Wystąpił problem z logowaniem. Sprawdź połączenie.");
       }
@@ -64,7 +58,6 @@ export default function Login() {
     <AuthLayout title="Witaj ponownie!" subtitle="Zaloguj się, aby kontynuować planowanie swojego wymarzonego dnia.">
       <form className="mt-6 space-y-5" onSubmit={handleSubmit}>
         
-        {/* Wyświetlanie błędu */}
         {error && (
           <div className="flex items-center gap-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg animate-in fade-in slide-in-from-top-1">
             <AlertCircle size={16} />
@@ -82,7 +75,7 @@ export default function Login() {
               className={inputClass} 
               type="email" 
               required 
-              placeholder="np. anna@example.com"
+              placeholder="np. test@test.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={loading}

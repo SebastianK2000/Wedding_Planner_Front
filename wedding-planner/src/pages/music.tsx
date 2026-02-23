@@ -161,7 +161,7 @@ export default function MusicPro() {
             city: m.city || "Cała Polska", 
             type: m.name?.toLowerCase().includes("dj") ? "DJ" : "Zespół", 
             priceFrom: Number(m.pricefrom) || Number(m.price) || 4000,
-            img: m.imageurl || "https://images.unsplash.com/photo-1516280440614-6697288d5d38?q=80&w=1200&auto=format&fit=crop",
+            img: m.imageurl,
             desc: m.description || "Profesjonalna oprawa muzyczna.",
             rating: Number(m.rating) || 4.5
         }));
@@ -190,7 +190,7 @@ export default function MusicPro() {
       try {
         await api.post("/user-favorites/", { serviceid: item.id, servicetype: "musician" });
         window.dispatchEvent(new Event("wp:cart:update"));
-        alert("Dodano wykonawcę do koszyka (konto)!");
+        alert("Dodano wykonawcę do koszyka!");
       } catch (e: any) {
         if (e.response && (e.response.status === 400 || e.response.status === 409)) alert("Ten wykonawca jest już w Twoim koszyku.");
         else alert("Błąd API.");

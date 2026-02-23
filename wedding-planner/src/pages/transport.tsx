@@ -151,7 +151,7 @@ export default function TransportPro() {
           capacity: Number(t.capacity) || 4,
           priceFrom: Number(t.pricefrom) || Number(t.price) || 1500,
           rating: Number(t.rating) || 4.8,
-          image: t.imageurl || "https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?q=80&w=1200&auto=format&fit=crop",
+          image: t.imageurl,
           description: t.description || "",
           features: Array.isArray(t.features) ? t.features : []
         }));
@@ -184,7 +184,7 @@ export default function TransportPro() {
        try {
          await api.post("/user-favorites/", { serviceid: item.id, servicetype: "transport" });
          window.dispatchEvent(new Event("wp:cart:update"));
-         alert("Dodano transport do koszyka (konto)!");
+         alert("Dodano transport do koszyka!");
        } catch (e: any) {
          if (e.response && (e.response.status === 400 || e.response.status === 409)) alert("Ten pojazd jest już w Twoim koszyku.");
          else alert("Błąd API.");

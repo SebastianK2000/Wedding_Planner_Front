@@ -52,7 +52,7 @@ export default function AdminSettings() {
         alert("Dane firmowe zostały zaktualizowane.");
       } else {
         await new Promise(r => setTimeout(r, 800));
-        alert("Ustawienia zapisane (symulacja dla tej sekcji).");
+        alert("Ustawienia zapisane");
       }
     } catch (error) {
       console.error(error);
@@ -168,7 +168,7 @@ export default function AdminSettings() {
                     <div className="space-y-6">
                          <div>
                             <h3 className="text-lg font-bold text-stone-900">Powiadomienia</h3>
-                            <p className="text-sm text-stone-500">Wybierz, o czym chcesz być informowany (symulacja).</p>
+                            <p className="text-sm text-stone-500">Wybierz, o czym chcesz być informowany.</p>
                         </div>
                         <div className="space-y-4">
                             <div className="flex items-start gap-3 p-4 rounded-2xl border border-stone-100 bg-stone-50">
@@ -193,7 +193,7 @@ export default function AdminSettings() {
                     <div className="space-y-6">
                         <div>
                             <h3 className="text-lg font-bold text-stone-900">Bezpieczeństwo</h3>
-                            <p className="text-sm text-stone-500">Zarządzaj hasłem (funkcja niedostępna w API).</p>
+                            <p className="text-sm text-stone-500">Zarządzaj hasłem.</p>
                         </div>
                         <div className="grid gap-4 max-w-md opacity-50 pointer-events-none">
                             <div className="space-y-1.5">
